@@ -1,0 +1,200 @@
+---
+title : 'W271 Assignment 1'
+output: 
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(sandwich)
+library(lmtest)
+library(car)
+```
+
+# Confidence Intervals (2 points for the whole question)
+
+A Wald confidence interval for a binary response probability does not always have the stated confidence level, $1-\alpha$, where $\alpha$ (the probability of rejecting the null hypothesis when it is true) is often set to $0.05\%$. The code below calculates the true confidence level of a Wald Confidence for given pi, alpha, and n.
+
+```{r}
+require(knitr)
+# Wrap long lines in R:
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+pi = 0.6 # true parameter value of the probability of success
+alpha = 0.05 # significane level
+n = 10
+w = 0:n
+wald.CI.true.coverage = function(pi, alpha=0.05, n) {
+  
+  # Objective: 
+  #    Calculate the true confidence level of a Wald Confidence (given pi, alpha, and n)
+  
+  # Input:
+  #    pi: the true parameter value
+  #    alpha: significance level
+  #    n: the number of trials
+  
+  # Return:
+  #    wald.df: a data.frame containing  
+  #    (1) observed number of success, w
+  #    (2) MLE of pi, pi.hat
+  #    (3) Binomial probability of obtaining the number of successes from n trials, pmf
+  #    (4) lower bound of the Wald confidence interval, wald.CI_lower.bound
+  #    (5) upper bound of the Wald confidence interval, wald.CI_upper.bound 
+  #    (6) whether or not an interval contains the true parameter, covered.pi
+  
+  w = 0:n
+  pi.hat = w/n
+  pmf = dbinom(x=w, size=n, prob=pi)
+  
+  var.wald = pi.hat*(1-pi.hat)/n
+  wald.CI_lower.bound = pi.hat - qnorm(p = 1-alpha/2)*sqrt(var.wald)
+  wald.CI_upper.bound = pi.hat + qnorm(p = 1-alpha/2)*sqrt(var.wald)
+  
+  covered.pi = ifelse(test = pi>wald.CI_lower.bound, 
+                      yes = ifelse(test = pi<wald.CI_upper.bound, yes=1, no=0), no=0)
+  
+  wald.CI.true.coverage = sum(covered.pi*pmf)
+  
+  wald.df = data.frame(w, pi.hat, 
+                       round(data.frame(pmf, wald.CI_lower.bound,wald.CI_upper.bound),4), 
+                       covered.pi)
+  
+  return(wald.df)
+}
+# Call the function with user-provided arguments (pi, alpha, n) to 
+# generate the data.frame that contains 
+# (1) the observed number of success, w 
+# (2) MLE of pi, pi.hat
+# (3) Binomial probability of obtaining the number of successes from n trials, pmf
+# (4) the lower bound of the Wald confidence interval, wald.CI_lower.bound 
+# (5) the upper bound of the Wald confidence interval, wald.CI_upper.bound
+# (6) whether or not an interval contains the true parameter, covered.pi
+wald.df = wald.CI.true.coverage(pi=0.6, alpha=0.05, n=10)
+# Obtain the true confidence level from the Wald Confidence,
+# given pi, alpha, and n
+wald.CI.true.coverage.level = sum(wald.df$covered.pi*wald.df$pmf)
+# Generalize the above computation to a sequence of pi's
+# Generate an example sequence of pi (feel free to make the increment smaller)
+pi.seq = seq(0.01, 0.99, by=0.01)
+# Create a matrix to store (1) pi and (2) the true confidence level of 
+# the Wald Confidence Interval corresponding to the specific pi
+wald.CI.true.matrix = matrix(data=NA,nrow=length(pi.seq),ncol=2)
+# Loop through the sequence of pi's to obtain the true confidence level of 
+# the Wald Confidence Interval corresponding to the specific pi
+counter=1
+for (pi in pi.seq) {
+    wald.df2 = wald.CI.true.coverage(pi=pi, alpha=0.05, n=10)
+    #print(paste('True Coverage is', sum(wald.df2$covered.pi*wald.df2$pmf)))
+    wald.CI.true.matrix[counter,] = c(pi,sum(wald.df2$covered.pi*wald.df2$pmf))
+    counter = counter+1
+}
+str(wald.CI.true.matrix)
+wald.CI.true.matrix[1:5,]
+# Plot the true coverage level (for given n and alpha)
+plot(x=wald.CI.true.matrix[,1],
+     y=wald.CI.true.matrix[,2],
+     ylim=c(0,1),
+     main = "Wald C.I. True Confidence Level Coverage", xlab=expression(pi),
+     ylab="True Confidence Level",
+     type="l")
+abline(h=1-alpha, lty="dotted")
+```
+
+
+## Transfer learning
+Use the code above to: 
+
+a. Redo the exercise for `n=50, n=100, n=500`; 
+b. Plot the graphs; and, 
+c. Describe what you have observed from the results. 
+
+```{r run wald code for n is 50}
+```
+
+```{r run wald code for n is 100}
+```
+
+```{r run wald code for n is 500}
+```
+
+```{r plot wald graphs}
+```
+
+> 'Fill this in: What do you observe?' 
+ 
+## Modify the Wilson Interval
+Use the code above to: 
+
+a. Modify the code for the Wilson Interval.
+b. Do the exercise for `n=10, n=50, n=100, n=500`. 
+c. Plot the graphs. 
+d. Describe what you have observed from the results and compare the Wald and Wilson intervals based on your results. 
+
+```{r load or modify code for wilson}
+```
+
+```{r run wilson code for n is 10}
+```
+
+```{r run wilson code for n is 50}
+```
+
+```{r run wilson code for n is 100}
+```
+
+```{r run wilson code for n is 500}
+```
+
+```{r plot wilson graphs}
+```
+
+> 'Fill this in: What do you observe?' 
+
+# Maximum Likelihood (5 points for the whole question)
+
+Let's build off of the maximum likelihood model of a binomial distribution from lecture and apply it to the wheat data set provided with the assignment.
+
+```{r}
+wheat <- read.csv("./data/wheat.csv")
+wheat$is_healthy <- wheat$type == "Healthy"
+```
+
+
+Suppose we want to estimate the probability of wheat being healthy as a function of density. In future lectures, we will do this using logistic regression but here we focus on maximum likelihood.
+
+Suppose that we can express the probability of wheat being healthy as a function of density in the following form (you should recognize this as the connection between log odds and probability from the lecture):
+
+$$P(Healthy)=P(\alpha,\beta)=\frac{e^{\alpha+\beta*Density}}{1+e^{\alpha+\beta*Density}}$$
+
+## Write the likelihood function
+Using this and assuming the number of healthy wheat in the data set follows a binomial distribution with parameters $n$ and $p(\alpha,\beta)$, **write down the likelihood function $L(\alpha,\beta|Data)$**.
+
+## Write and compute the log-likelihood
+Find the **negative log likelihood** and write an R function to calculate it given inputs of alpha and beta and using the wheat data.
+
+```{r llog-likelihood function}
+```
+
+## Compute the MLE of parameters  
+Use the optim function to **find the MLE of alpha and beta on the wheat data**. You can use starting values of 0 for both parameters. Note that optim by default finds the minimum, so you can use the negative log likelihood directly.
+
+```{r optimize using optim}
+
+```
+
+## Calculate a confidence interval 
+Again using the optim function, find the **variance of the MLE estimates** (hint use hessian = TRUE in optim) for alpha and beta. Calculate a **95% confidence interval** for each parameter. Are they statistically different than zero?
+
+```{r optimize using optim to compute the CI}
+
+```
+
+## Model comparison   
+Compare the **MLE of alpha and beta to the output of the logistic regression model code** that is provided below. What do you notice? Can you think of why this is the case? (Think about the connection between MLE of regression coefficients and linear regression)
+
+```{r logistic regression model code}
+summary(glm(is_healthy ~ density, data = wheat, family = binomial(link = "logit")))
+```
+
