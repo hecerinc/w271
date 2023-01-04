@@ -1,0 +1,1 @@
+dat <- read.csv("https://raw.githubusercontent.com/michael-franke/intro-data-analysis/master/data_sets/politeness_data.csv")

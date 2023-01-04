@@ -1,0 +1,139 @@
+---
+title: "W271 Summer 2022 Lecture Video Question Solutions Week 11"
+output:
+  html_document:
+    code_folding:
+    number_sections: no
+    theme: cosmo
+    toc: yes
+    toc_float: no
+  pdf_document:
+    toc: yes
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Week 11 
+
+## 11.3 Using OLS Regression Model on Panel Data
+
+<br>
+
+### Q: What is wrong with this histogram? Answer this question in one sentence in the following text box.
+
+#### Solution:
+
+```{r}
+#install.packages("wooldridge")
+library(wooldridge)
+data("crime2")
+
+head(crime2)
+
+hist(crime2$crmrte, col = "plum4", xlab = "Crime Rate", ylab = "Count", main = "", breaks = 30)
+```
+
+**The histogram is effectively treating each observation as independent and from the same distribution, but we know this data is a panel data set.** It has structure both over time and also location. Hence, the histrogram is lumping different cities together, which likely have different means of crime rates, making the single histogram plot not super useful in actually examining the variation within various locations.
+
+<br>
+
+### Q: What is wrong with this histogram? Answer this question in one sentence in the following text box.
+
+#### Solution:
+
+```{r}
+model <- lm(crmrte ~ unem, data = crime2)
+
+par(mfrow = c(2, 2))
+plot(model)
+```
+
+The residuals vs. fitted plot shows a slight trend in the residuals towards the ends of the distribution of fitted values, but it is not super concerning. A qq plot of the residuals shows deviation from normality for residuals at the extremes, but this is also quite common in regression. There are also no few points with a particularly high leverage, suggesting there are not many outliers.
+
+**However, given the panel data structure, we know that this model is not correct despite the lack of obvious signs from the diagnostic plots.** This highlights that even if the diagnostic plots look ok you should make sure you understand the structure of the data to be able to design an appropriate model.
+
+<br>
+
+## 11.4 Exploratory Panel Data Analysis: A Two-Period Panel
+
+<br>
+
+### Q: Perform regression diagnostics, and interpret the results. Comment on the regression results and whether this regression makes sense.
+
+#### Solution:
+
+```{r}
+crime.82 <- crime2[crime2$year == 82,]
+
+model <- lm(crmrte ~ unem, data = crime.82)
+summary(model)
+
+par(mfrow = c(2, 2))
+plot(model)
+```
+
+Focusing on the 1982 data first, we see no evidence of a relationship between unemployment rate and crime rate since the coefficient on the unemployment rate is not statistically significant. It does has the intuitive sign since a higher unemployment rate should be positively correlated with a higher crime rate.
+
+The residual diagnostic plots also look fine with little trend in the residuals the qq plot is generally linear. There are potentially some high leverage points that it would be good to test the inclusion of, but again we also know this model does not fit the data structure well.
+
+```{r}
+crime.87 <- crime2[crime2$year == 87,]
+
+model <- lm(crmrte ~ unem, data = crime.87)
+summary(model)
+
+par(mfrow = c(2, 2))
+plot(model)
+```
+
+Focusing on the 1987 data, we see the same thing of statistically insignificant results. But this time the sign on the unemployment rate coefficient is opposite what we would intuitively expect. The diagnostic plots mostly look fine however.
+
+<br>
+
+### Q: What is wrong with this histogram? Answer this question in one sentence in the following text box.
+
+#### Solution:
+
+```{r}
+model <- lm(crmrte ~ unem, data = crime2)
+
+par(mfrow=c(2,2))
+plot(model)
+```
+
+The residuals vs. fitted plot shows a slight trend in the residuals towards the ends of the distribution of fitted values, but it is not super concerning. A qq plot of the residuals shows deviation from normality for residuals at the extremes, but this is also quite common in regression. There are also no few points with a particularly high leverage, suggesting there are not many outliers.
+
+**However, given the panel data structure, we know that this model is not correct despite the lack of obvious signs from the diagnostic plots.** This highlights that even if the diagnostic plots look ok you should make sure you understand the structure of the data to be able to design an appropriate model.
+
+<br>
+
+## 11.5 Unobserved Effect Models and Pooled OLS and First-Difference Models
+
+<br>
+
+### Q: In the model below what are the intercepts when $t=1$ and when $t=2$?
+
+#### Solution:
+
+The model is $y_{i,t}=\beta_0+\delta_0d2_t+\beta_1x_{i,t}+a_i+\epsilon_{i,t}$
+
+Note the panel data structure in this model where $i$ indexes location/group and $t$ indexes time period
+
+$d2_t$ is an indicator that is one when $t=2$ and 0 when $t=1$ (assuming we only have two periods here).
+
+Hence when $t=1$, the model returns:
+
+$y_{i,t}=\beta_0+\beta_1x_{i,t}+a_i+\epsilon_{i,t}$ since $d2_t=0$
+
+And when $t=2$, the model returns:
+
+$y_{i,t}=\beta_0+\delta_0+\beta_1x_{i,t}+a_i+\epsilon_{i,t}$ since $d2_t=1$
+
+**The intercept when $t=1$ is $\beta_0+a_i$, and when $t=2$ the intercept is $\beta_0+\delta_0+a_i$.**
+
+<br>
+

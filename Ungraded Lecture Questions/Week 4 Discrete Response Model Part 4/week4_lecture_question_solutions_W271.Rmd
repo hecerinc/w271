@@ -1,0 +1,97 @@
+---
+title: "W271 Summer 2022 Lecture Video Question Solutions Week 4"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    code_folding:
+    number_sections: no
+    theme: cosmo
+    toc: yes
+    toc_float: no
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Week 4 Discrete Response Model Part 4
+
+## 4.4 Independence
+
+<br>
+
+### Q: Without consulting any resources, write down in mathematical form the definition of independence of two random variable with PDFs P(X) and P(Y).
+
+#### Solution:
+
+There are a few ways we can mathematically described independence of two random variables. Fundamentally though, independence means that the distribution of the two random variables do not depend on one another.
+
+**Mathematically this can be represented as**:
+
+**$P(X=x|Y=y)=P(X=x)$ and $P(Y=y|X=x)=P(Y=y)$ or $P(X=x and Y=y)=P(X=x)P(Y=y)$**
+
+<br>
+
+## 4.8 Odds Ratio
+
+<br>
+
+### Q: Show $e^{c(\beta_{j1}-\beta_{j^{\prime}1})}$ for a multinomial logistic regression model
+
+#### Solution:
+
+Remember that in multinomial logistic regression, we estimate essentially separate regressions for each category relative to the reference category. The coefficients and odds ratios we get from a multinomial logistic regression are therefore relative to the reference category.
+
+Following, the properties of odds ratios, we multiply and cancel things out to get the desired odds ratios comparing different groups in the model.
+
+Let's say we have the setup from the lecture such that:
+
+$log(\frac{\pi_j}{\pi_1})=\beta_{j0}+\beta_{j1}x$
+
+$log(\frac{\pi_{j^\prime}}{\pi_1})=\beta_{j^\prime0}+\beta_{j^\prime1}x$
+
+Therefore, for group $j$ the odds ratio of a c change in x relative to the reference category is $e^{c\beta_{j1}}$.
+
+For group $j^\prime$ the odds ratio of a c change in x relative to the reference category is $e^{c\beta_{j^\prime1}}$, so the odds of the reference group to group $j^\prime$ is $e^{-c\beta_{j^\prime1}}$.
+
+**Therefore, the odds ratio of group $j$ to group $j^{\prime}$ is $\frac{Odds_j}{Odds_{ref}}*\frac{Odds_{ref}}{Odds_{j^\prime}}=\frac{Odds_j}{Odds_{j^\prime}}=e^{c(\beta_{j1}-\beta_{j^{\prime}1})}$.**
+
+<br>
+
+### Q: How could the estimated odds ratios for sprout vs. scab be calculated?
+
+#### Solution:
+
+**Following the above prompt, we can exponentiate the difference between coefficients times the desired value to get at the odds ratio for sprout vs. scab.**
+
+Say we have the model below:
+
+```{r}
+library(nnet)
+
+#data can be found here: https://www.chrisbilder.com/categorical/programs_and_data.html
+dat <- read.csv("~/Documents/Berkeley W271/Week 4 Discrete Response Model Part 4/wheat.csv")
+head(dat)
+
+multi.model <- multinom(type ~ class + density + hardness + size + weight + moisture,
+                        data = dat)
+
+summary(multi.model)
+```
+
+Let's use the class variable. Class is a categorical variable with values of hrw and srw. Therefore, the coefficient in the fitted model below represents the marginal impact of being in the srw class on the logit wher ethe reference category is Healthy.
+
+We can find the odds ratio of sprout to scab for srw by subtracting the coefficients of class from the model for sprout and scab and exponentiating the difference.
+
+```{r}
+class.coef <- coefficients(multi.model)[,"classsrw"]
+sprout.to.scab.or <- unname(exp(class.coef["Sprout"] - class.coef["Scab"]))
+sprout.to.scab.or
+```
+
+The odds ratio of sprout to scab is 1.5 for class srw, meaning that wheat with a class of srw are 1.5 times more likely to be sprout than scab.
+
+<br>

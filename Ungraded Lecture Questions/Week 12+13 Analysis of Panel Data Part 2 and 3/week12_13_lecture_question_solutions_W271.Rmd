@@ -1,0 +1,274 @@
+---
+title: "W271 Summer 2022 Lecture Video Question Solutions Week 12+13"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    code_folding:
+    number_sections: no
+    theme: cosmo
+    toc: yes
+    toc_float: no
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Week 12: Analysis of Panel Data: Fixed Effect and Random Effect Models
+
+## 12.2 An Introduction to Fixed-Effect Models
+
+<br>
+
+### Q: Does it matter that an intercept is included in the context of a fixed-effect model?
+
+#### Solution:
+
+The specified model is: $y_{i,t}=\beta_0+\beta_1x_{i,t}+a_i+\epsilon_{i,t}$
+
+In a fixed effects model, the intercept effectively becomes the reference group. When the intercept is not included, the reference group gets a separate intercept term to represent it. **Therefore, it generally makes no difference whether an intercept is included or not in the context of a fixed effect model.**
+
+As an example, let's say we have two groups $i=1,2$.
+
+For $i=1$ the regression equation with an intercept is $y_{i,t}=\beta_0+\beta_1x_{i,t}+\epsilon_{i,t}$
+
+For $i=1$ the regression equation without an intercept is $y_{i,t}=\beta_1x_{i,t}+\tilde{a}_1+\epsilon_{i,t}$
+
+For $i=2$ the regression equation with an intercept is $y_{i,t}=\beta_0+\beta_1x_{i,t}+a_2+\epsilon_{i,t}$
+
+For $i=3$ the regression equation without an intercept is $y_{i,t}=\beta_1x_{i,t}+\tilde{a}_2+\epsilon_{i,t}$
+
+So we can see that what changes is effectively the coefficients on each fixed effect. For $i=1$ comparing the equations we have that $\beta_0=\tilde{a}_1$ and $\beta_0+a_2=\tilde{a}_2$. Effectively without an intercept, the reference group indicator can be estimated separately, resulting in essentially the same equation.
+
+The only caveat is that R squared and other diagnostics are invalid without including an intercept. Generally, it is advised to always include an intercept in models.
+
+To see that they are indeed the same, we can compare the model output below with and without an intercept. Note how a coefficient for Group 1 is included in the second model and is equal to the intercept in the first model, but some of the diagnostics are not the same.
+
+```{r}
+dat <- expand.grid("Group" = 1:2, "Time" = 1:4)
+dat$X <- rnorm(nrow(dat))
+dat$Y <- dat$X + dat$Group + dat$Time + rnorm(nrow(dat))
+```
+
+```{r}
+#with intercept
+summary(lm(Y ~ X + factor(Group) + factor(Time), data = dat))
+```
+
+```{r}
+#without intercept; note how the coefficient on Group 1 = the intercept in the previous model
+summary(lm(Y ~ X + factor(Group) + factor(Time) - 1, data = dat))
+```
+
+<br>
+
+## 12.3 An Example: The Effect of Job Training on Firm Scrap Rates
+
+<br>
+
+### Q: Answer the various questions listed below.
+
+#### Solution:
+
+```{r}
+library(wooldridge)
+
+data("jtrain")
+
+jtrain.87 <- jtrain[jtrain$year == 1987, ]
+```
+
+**Is there anything wrong with this estimated regression (in terms of understanding impact of training on scrap rate)?**
+
+```{r}
+model <- lm(lscrap ~ hrsemp + lsales + lemploy, data = jtrain.87)
+summary(model)
+```
+
+Technically speaking, there is nothing wrong with this regression as is except for the fact that it does not leverage the full data set and structure of the panel data. It is really estimating the impact of training on scrap rate in 1987.
+
+**Interpret the coefficient associated with the variable hrsemp.**
+
+The model results imply that there is a significant, negative relationship between training and scrap rate, meaning that as we increase training we decrease the scrap rate. This is the intuitive relationship we might expect, given that training should make workers more effective at their jobs and help reduce errors.
+
+**Is the effect large? Is there any other information (perhaps including that not included in the regression) you would need in order to answer this question?**
+
+The coefficient is -0.04, meaning that for each unit increase (hour) in hrsemp, we decrease lscrap by -0.04. However, it is hard to know the impact without taking into account the typical variations in hrsemp and lscrap. We would want to understand the standard deviation of hrsemp and mean of lscrap to contextualize this coefficient results.
+
+To better understand if this coefficient is a large impact, we can multiply it by the standard deviation of hrsemp and divide that by the average lscrap rate. This is effectively comparing the marginal impact of a one standard deviation increase in hrsemp to the average lscrap to see if the typical change is relatively large.
+
+As the number below shows, the coefficient on hrsemp implies a large impact to lscrap.
+
+```{r}
+#take logs first given high skew in hrsemp to avoid outliers
+hrsemp.sd <- exp(sd(log(1 + jtrain.87$hrsemp), na.rm = T))
+
+#average lscrap
+avg.lscrap <- mean(jtrain.87$lscrap, na.rm = T)
+
+#1 sd increase in hrsemp leads to a relative decrease in lscrap
+hrsemp.sd * coef(model)["hrsemp"]/ avg.lscrap
+```
+
+**How would you estimate a cross-sectional model differently, if at all?**
+
+To estimate a cross sectional model, we can use the same formula on the larger data set except add fixed effects for year to control for differences across time in lscrap.
+
+When we utilize the full data set and include fixed effects for year, the hrsemp coefficient is no longer significant. Obviously in a real analysis, we would want to likely include additional controls and do more analysis in the model. But this highlights how sometimes accounting for the panel data can change the results seen in a more basic model or how results in a subset of the data do not always match the results in a larger sample.
+
+```{r}
+model <- lm(lscrap ~ hrsemp + lsales + lemploy + factor(year), data = jtrain)
+summary(model)
+```
+
+<br>
+
+## 12.4 A Digression: Differencing When There Are More Than Two Time Periods
+
+<br>
+
+### Q: Why in the fixed-effect models is the transformation of more than two time periods naturally handled?
+
+#### Solution:
+
+**In a fixed effects model, we can take successive differences between periods to eliminate any unobserved differences in groups that are time invariant i.e. do not change with time.** This just collapses the number of observations and reduces the number of time periods we are analyzing, but the model itself can still be run after removing the fixed effects that are differenced out.
+
+<br>
+
+## 12.5 Remarks on Fixed-Effect Models
+
+<br>
+
+### Q: What does homoskedasticity and serially uncorrelated errors across $t$ mean?
+
+#### Solution:
+
+**Homoskedasticity across time means that the $Var(\epsilon_t|t)=\sigma^2$ i.e. that the variance of the residuals does not depend on time and is constant over time.** If there is a relationship with the variance over time, then the regression coefficients will not be consistent, leading to incorrect statistical inferences.
+
+**Serial correlation means that the residuals are correlated over time i.e. $Cov(\epsilon_t,\epsilon_{t^\prime})\ne 0$.** This means that the residuals are not longer independent and that the regression model is no longer consistent, again leading to incorrect statistical inferences.
+
+Note that neither of these violations makes the regression equation necessarily biased. The coefficient estimate is still unbiased if we assume the residuals are centered at zero, but it is no longer BLUE or consistent.
+
+<br>
+
+### Q: In a general fixed-effect model, we have $N×T$ observations and $k$ independent variables. As such, we should have $NT-k$ degrees of freedom. Is that correct?
+
+#### Solution:
+
+Generally speaking, this is not correct if we include fixed effects for each group and time period in the regression model. If we omit these fixed effects though, then this is correct.
+
+In a true fixed effect model, we have $k$ independent variables but also $(N-1)$ variables for each group and $(T-1)$ variables for each time period (we subtract one for the reference group and reference time period).
+
+This means we really have $NT-k-(N-1)-(T-1)-1$ degrees of freedom in the model.
+
+<br>
+
+## 12.6 Random-Effect Models
+
+<br>
+
+### Q: Estimate the model using pooled OLS and fixed effects.
+
+#### Solution:
+
+We use the plm package because it makes estimating pooled OLS, fixed effects, and random effects models easy on panel data. We just have to specify the input dataset and the indices that describe the panel struture.
+
+```{r}
+#install.packages("wooldridge")
+#install.packages("plm")
+library(wooldridge)
+library(plm)
+data("wagepan")
+
+wagepan.pl <- pdata.frame(wagepan, index = c("nr", "year"))
+panel.model.pool <- plm(lwage ~ educ + black + hisp + exper + I(exper^2) + married + union, wagepan.pl, model = "pooling")
+panel.model.fe <- plm(lwage ~ educ + black + hisp + exper + I(exper^2) + married + union, wagepan.pl, model = "within")
+```
+
+The pooled regression results, which ignores any grouping strucure is similar to the random effects results seen in the lecture.
+
+```{r}
+#pooled regression
+summary(panel.model.pool)
+```
+
+The fixed effects model results drop the educ, black, and hisp terms because when we include fixed effects for each person, that absorbs these variables, which are at the person level. This is one benefit of random effects models which allow us to include these in addition to person level random intercepts.
+
+```{r}
+#fixed effects regression
+summary(panel.model.fe)
+```
+
+<br>
+
+# Week 13: Analysis of Panel Data: Linear Mixed Effect Models
+
+<br>
+
+### Q: Test the specified models using a likelihood ratio test and explain your result.
+
+#### Solution:
+
+```{r}
+#note the data no longer appears to be available at the url in the lecture video
+#we can obtain a similar data set here:
+#https://raw.githubusercontent.com/michael-franke/intro-data-analysis/master/data_sets/politeness_data.csv
+#frequency = pitch and attitude = context
+dat <- read.csv("https://raw.githubusercontent.com/michael-franke/intro-data-analysis/master/data_sets/politeness_data.csv")
+
+head(dat)
+```
+
+```{r}
+base.model <- lm(pitch ~ gender + context, data = dat)
+full.model <- lm(pitch ~ gender + context + gender:context, data = dat)
+
+anova(base.model, full.model, test = "LRT")
+```
+
+Comparing the models with a LRT has a p-value pf 0.31, meaning that the full model with the interaction term is not significantly better than the smaller model without the interaction term. There is no evidence of a different politness effect on pitch by gender in this data set.
+
+<br>
+
+### Q: Compare the results of your model to the final model with both fixed effects, random intercepts, and random slopes from lecture.
+
+#### Solution:
+
+```{r}
+#note the data no longer appears to be available at the url in the lecture video
+#we can obtain a similar data set here:
+#https://raw.githubusercontent.com/michael-franke/intro-data-analysis/master/data_sets/politeness_data.csv
+#frequency = pitch and attitude = context and scenario = sentence
+dat <- read.csv("https://raw.githubusercontent.com/michael-franke/intro-data-analysis/master/data_sets/politeness_data.csv")
+
+head(dat)
+```
+
+```{r}
+library(lme4)
+
+#note convergence issue is likely due to differences in data set
+re.model <- lmer(pitch ~ gender + context + (1 + context | subject) + (1 + context | sentence), data = dat, REML = F)
+
+summary(re.model)
+```
+
+We will fit a model with fixed effects and an interaction between sentence and context.
+
+```{r}
+alt.model <- lm(pitch ~ gender + context + sentence + sentence * context, data = dat)
+
+summary(alt.model)
+```
+
+```{r}
+anova(re.model, alt.model)
+```
+
+Comparing the models, our alternative model is not significantly better compared to the random effects model.
+
+<br>
+

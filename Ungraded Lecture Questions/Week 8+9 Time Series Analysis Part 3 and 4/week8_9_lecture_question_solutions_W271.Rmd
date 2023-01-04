@@ -1,0 +1,78 @@
+---
+title: "W271 Summer 2022 Lecture Video Question Solutions Week 8+9"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    code_folding:
+    number_sections: no
+    theme: cosmo
+    toc: yes
+    toc_float: no
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Week 8 Time Series Analysis Part 3
+
+## 8.2 Autoregressive Models, Part 3: Expression in Lag Operators
+
+<br>
+
+### Q: Is this a stationary series? Derive your answer by manipulating the equation above.
+
+#### Solution:
+
+The provided series is an AR(2) series of the form $x_t=x_{t-1}-\frac{1}{4}x_{t-2}+\omega_t$.
+
+The easiest way to find stationarity is to leverage the backshift operator and factor the resulting polynomial when set to zero. If all of the solutions to the resulting equation are greater than one, then the series is stationary.
+
+The backshift operator turns lags of $x_t$ to powers of the backshift operator i.e. $x_{t-n}=B^nx_t$.
+
+Using that the model is $x_t=Bx_t-\frac{1}{4}B^2x_t+\omega_t$.
+
+Rearranging this gives $x_t-Bx_t+\frac{1}{4}B^2x_t=(1-\frac{1}{2}B)x_t=\omega_t$. Setting to zero gives the solution as $B=2$, meaning the series is stationary.
+
+We can also check for stationarity through repeated back substitution, which would essentially be doing what the backshift operator is checking for with more complicated algebra.
+
+Let's fix $x_0$ and $x_1$ since the time series involves two lags.
+
+Then:
+
+$x_2=x_1-\frac{1}{4}x_0+\omega_2$
+
+$x_3=x_2-\frac{1}{4}x_1+\omega_3=(x_1-\frac{1}{4}x_0+\omega_2)-\frac{1}{4}x_1+\omega_3=\frac{3}{4}x_1-\frac{1}{4}x_0+\omega_3+\omega_2$
+
+$x_4=x_3-\frac{1}{4}x_2+\omega_4=(\frac{3}{4}x_1-\frac{1}{4}x_0+\omega_3+\omega_2)-\frac{1}{4}(x_1-\frac{1}{4}x_0+\omega_2)+\omega_4=\frac{2}{4}x_1-\frac{3}{16}x_0+\omega_4+\omega_3+\frac{3}{4}\omega_2$
+
+$x_5=x_4-\frac{1}{4}x_3+\omega_5=(\frac{2}{4}x_1-\frac{3}{16}x_0+\omega_4+\omega_3+\frac{3}{4}\omega_2)-\frac{1}{4}(\frac{3}{4}x_1-\frac{1}{4}x_0+\omega_3+\omega_2)+\omega_5$
+
+Following this pattern we have something of the form $x_t=Ax_1+Bx_0+\omega_t+\omega_{t-1}+\Sigma_{i=2}^{t-2}w_i\omega_i$ where $w_i<1$.
+
+Hence, the expectation and variance are finite due to the fact that $x_0$ and $x_1$ are fixed, $\omega_t$ is independent and identically distributed for all time points, and the weights decline to zero as time increases. Specifically the variance is a decaying sum of weighted $\sigma^2$ values, making it finite as opposed to the random walk whose variance explodes. We do similarly reasoning for the autocovariance between periods as well to show it is fixed for the same time lags. All this combined leads to this time series being stationary.
+
+<br>
+
+# Week 9 Time Series Analysis Part 4
+
+## 9.2 Mathematical Formulation and Properties of ARMA Models
+
+<br>
+
+### Q: An ARMA model does not need the invertibility condition.
+
+#### Solution:
+
+The invertibility condition in a time series means that the errors can be written as a sum of current and past observations:
+
+$\omega_t=\Sigma_{i=0}^\infty(-\theta)^ix_{t-i}$
+
+and $|\theta|<1$
+
+ARMA processes do not have to satisfy this since the weights on the lagged moving average terms are not constrained to necessarily be less than one in absolute value.
+
+<br>
