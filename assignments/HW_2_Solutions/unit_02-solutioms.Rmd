@@ -1,0 +1,316 @@
+---
+title : 'W271 Assignment 2 Solution'
+output: 
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+```{r load packages, message=FALSE}
+library(tidyverse)
+library(sandwich)
+library(lmtest)
+library(Hmisc)
+library(car)
+library(stargazer)
+
+```
+\newpage 
+
+# Placekicking Data: Binary Logistic Regression (3 points -- one for each sub-question)
+
+Does the strategy of *icing the kicker* reduce the probability of success for a field goal? The idea is this: In American football, there is a play where a person kicks the ball through the uprights to score points. This is a high-pressure event, and there is a theory that making the kicker stand on the field and think about it will make the kicker nervous, and so make them more likely to miss their attempt. 
+
+
+
+```{r read placekick data, message=FALSE}
+pk <- read_csv('./data/placekick.BW.csv')
+
+str(pk)
+
+```
+
+## Linear Model, with Linear Effects 
+
+Use the `distance`, `weather`, `wind15`, `temperature`, `grass`, `pressure` and `ice` as explanatory variables in a logistic regression model that predicts success. Estimate the model, and interpret each of the indicator variables that are used in the model. 
+
+```{r warning=FALSE, message=FALSE}
+# Examine the data structure
+#str(pk)
+#describe(pk)
+
+levels(factor(pk$Weather))
+mod.glm1 = glm(formula = factor(Good) ~ Distance + factor(Weather) + Wind15 
+               + factor(Temperature) + Grass + factor(Pressure) + Ice,
+               family = binomial(link = logit), data = pk)
+summary(mod.glm1)
+```
+
+$$
+\begin{aligned}
+  logit(\hat{\pi}(Good)) & \\
+       =& 5.74 - 0.11Distance -0.08WeatherInside - 0.44WeatherSnowRain - 0.25WeatherSun  \\
+       & - 0.24Wind15 + 0.25TemperatureHot +0.23TemperatureNice - 0.33Grass + 0.27PressureY \\
+       & - 0.88Ice\\
+\end{aligned}
+$$
+
+> First, notice that only coefficients of `distance`, `(Weather)SnowRain`, and `Grass`  are statistically significant (associated with a p-value < 0.05), so our model suggests that these variables do in fact, influence the probability of success for a field goal. And because they are negative numbers, we can say that they decrease the probability of success for a field goal.
+
+> One-yard increase is associated with 10.9% decrease in log-odds. The log-odds are smaller when `Weather = SnowRain` or `Grass = 1` compared to the reference group.
+
+
+
+\newpage 
+
+## Sun Shine Daydream
+
+The authors use the `Weather==Sun` as the base level category for `Weather`. This is not the default that R uses. Change either the data, or how you estimate the model so that `Weather==Sun` is the base category and other types of weather are the contrasts. Interpret the results.
+
+```{r}
+# Examine the current level in the Weather variable
+levels(factor(pk$Weather))
+
+# Relevel the variable using factor() function
+pk$Weather = factor(pk$Weather, levels = c("Sun", "Clouds", "Inside", "SnowRain"),
+                    labels = c("Sun", "Clouds", "Inside", "SnowRain"))
+# Re-estimate the logistic regression, calling it mod.glm1b
+mod.glm1b <- glm(formula = factor(Good) ~ Distance + Weather + Wind15 + 
+                   factor(Temperature) + Grass + factor(Pressure) + Ice, 
+                 family = binomial(link = logit), data = pk)
+summary(mod.glm1b)
+```
+
+> In this model, also the coefficients of `distance`, and `Grass` are statistically significant with the same sign and interpretation. 
+
+\newpage 
+
+## Likelihood Ratio Tests 
+
+Perform likelihood ratio tests for all explanatory variables to evaluate their importance within the model. Discuss and interpret the results of these tests. 
+
+> Let's use our original model, *mod.glm1*, for thie exercise.
+
+```{r}
+library(car)
+# Conduct LRTs on all of the explanatory variables
+Anova(mod.glm1, test="LR" )
+
+# Estimate the Profile likelihood C.I.
+mod.glm1.ci <- confint(object = mod.glm1, level = 0.95)
+
+# Print Profile likelihood C.I. for the estimated odds ratios 
+exp(mod.glm1.ci)
+``` 
+> From a statistical significance perspective, the variables *Distance*, *Grass*, and *Ice* are all significant, thought *Ice* is only marginally significant.
+
+> The other p-values are all greater than 0.10, where Weather and Wind15 are somewhat closer to 0.10 than Pressure and Temperature. We can say for these four variables that there is not sufficient evidence that they affect the probability of success for a field goal when $\alpha= 0.05$. 
+
+> It is important to note that each hypothesis test is conditional on the other variables remaining in the model.
+
+\newpage 
+
+## Should you kick or not? 
+
+Suppose that you are trying to make an assessment about whether to kick a field goal in *The Game* -- the annual rivalry game played between the Cal Bears and Stanford ... (What is their mascot? A tree?) 
+
+Suppose that Cal is down by two points (so `Pressure = Y`), that the distance is 35 yards, and that it is a typical autumn evening in Berkeley, so `Wind15 = 0`, `Weather=Sun`, and `Temperature=Nice`. Cal plays on a turf stadium, and Stanford is out of timeouts, so cannot ice the kicker. What are the chances that Cal makes the kick? Compute the 95% confidence interval
+
+```{r message = FALSE ,error = TRUE}
+alpha = 0.5
+
+## Create the dataframe 
+data <- data.frame(Distance = 35, Weather = "Sun", Wind15 = 0,
+                   Temperature = "Nice", Grass = 0 , Pressure = "Y", Ice = 0)
+
+# Obtain the linear predictor
+linear.pred = predict(object = mod.glm1, newdata = data, type = "link", se = TRUE)
+
+# Then, compute pi.hat
+pi.hat = exp(linear.pred$fit)/(1+exp(linear.pred$fit))
+#pi.hat
+
+# Compute Wald Confidence Interval (in 2 steps)
+# Step 1: compute the CI of linear predictor 
+CI.lin.pred = linear.pred$fit + qnorm(p = c(alpha/2, 1-alpha/2))*linear.pred$se.fit
+#CI.lin.pred
+
+# Step 2: compute the CI of probability of succcess
+CI.pi = exp(CI.lin.pred)/(1+exp(CI.lin.pred))
+#CI.pi
+
+# Store all the components in a data frame
+#str(predict.data)
+round(data.frame(pi.hat, lower=CI.pi[1], upper=CI.pi[2]),2)
+```
+
+> The 95% Wald confidence interval for the probability that Cal makes the kick is between 0.88 and 0.91, So the probability of success for the kick is quite high when  Cal is down ( `Pressure = Y`), plays on a turf stadium, the distance is 35 yards, `Wind15 = 0`, `Weather=Sun`, `Temperature=Nice`, and cannot ice the kicker.
+
+
+\newpage
+
+# Binary Logistic Regression (5 points -- one for each sub-question)
+
+For this question, we use the Mroz dataset from  *car* library to study factors that are related to married female participation in the labor market. 
+
+```{r load Mroz data}
+glimpse(Mroz)
+```
+
+In this dataset, lfp is a binary variable indicating labor force participation by a married woman during 1975. lfp is equal to one if the woman reports working for a wage outside the home during the year and zero otherwise. We assume that married female labor force participation depends on the following seven potential explanatory variables included in this data set:
+
+  - k5: number of kids below the age of 5
+  - k18: number of kids between 6 and 18
+  - age: wife's age (in years)
+  - wc: wife's college attendance
+  - hc: husband's college attendance
+  - lwg: log of wife's estimated wage rate
+  - inc: family income excluding the wife's wage ($1000)
+
+
+## Estimate a binary logistic regression
+Estimate a binary logistic regression with `lfp`, which is a binary variable recoding the participation of the females in the sample, as the dependent variable. The set of explanatory variables includes `age`, `inc`, `wc`, `hc`, `lwg`, `totalKids`, and a quadratic term of `age`, called `age_squared`, where `totalKids` is the total number of children up to age $18$ and is equal to the sum of `k5` and `k618`.
+
+> We first create a new varirables, such as the total number of kids and the quadratic term of age. Then, we estimate a binary logistic regression using the `glm()` function and display the estimation result.
+
+```{r}
+# Create new explanatory variables
+
+# Total number of kids
+Mroz['totalKids'] <- Mroz$k5 + Mroz$k618
+# Quadratic term of age (i.e. age squared)
+Mroz['age_squared'] <- Mroz$age^2
+
+# Estimate a bineary logistic regression with the variables specified in the questions
+mroz.glm1 <- glm(lfp ~ age + age_squared + inc + wc+ hc + lwg + totalKids,
+                 family = 'binomial', data = Mroz)
+
+
+# Note that another way to include a quadratic term is to include
+#the transformation in the glm() function directly: 
+
+#glm(lfp ~ age + I(age^2) + inc + wc + hc+  lwg + totalKids, family = 'binomial', data = Mroz)
+
+# Display the estimation results
+summary(mroz.glm1)
+
+```
+
+> Using the usual z statistics, all variables except `hcyes`  are statistically significant. The positive coefficient of `age` and negative coefficient of 'age_squared' indicates that the probability of labor force participation by a married woman increase with an increase in age but with a diminishing rate.
+
+
+> The negative coefficients of 'inc' and 'totalKids' imply a negative association between family income and the number of kids and women's probability of labor force participation.
+
+> The positive coefficient of `lwg` mean that wife's estimated wage rate is positively correlated with the probability of labor force participation by women. Also, the positive coefficient of `wcyes` indicates a higher probability of labor force participation for educated females.
+
+
+
+\newpage 
+
+## Evaluate statistical significance
+Is the age effect statistically significant? 
+
+> To test the statistical significance of the age effect, we will apply LRT using R's `anova()` function, and to do so, we will estimate a "restricted" model with the age variables, which include both `age` and `age_squared` in the "full" model. We will call the restricted model `mroz.glm2`. Note also that because age is entered the logistic regression as a quadratic function, testing the statistical significance of the age effect include testing multiple hypotheses.
+
+> The model being estimated, surpressing the subscript for individuals, is
+
+$$
+log(\frac{\pi}{1-\pi}) = \beta_0 + \beta_1 age + \beta_2 age\_squared + \beta_3 inc + \beta_4 wc + \beta_5 hc + \beta_6 lwg + \beta_7 totalKids
+$$
+
+> where $\pi$ denotes the probability that a female participating in the labor force. That is, $P(lfp_i=1)$
+
+$$
+H_0: \beta_1 = 0 \text{ and } \beta_2 = 0 
+$$
+
+$$H_1: (\beta_1 \ne 0 \text{ and } \beta_2 = 0), \text{ or } (\beta_1 = 0 \text{ and } \beta_2 \ne 0), \text{ or } (\beta_1 \ne 0 \text{ and } \beta_2 \ne 0)
+$$
+
+> *Note: I just explicitly write out all the alternative hypotheses.* In most case, the following expression is being used
+
+$$
+H_0: \beta_1 = 0 \text{ and } \beta_2 = 0
+$$
+$$H_1: H_0 \text{ is not true}$$
+```{r}
+mroz.glm2 <- glm(lfp ~ inc + wc + hc + lwg + totalKids, family = 'binomial', data = Mroz)
+# Display both Model 1 and Model 2
+stargazer(mroz.glm1, mroz.glm2, type = 'text')
+# Apply LRT
+anova(mroz.glm1, mroz.glm2, test = "LRT")
+```
+
+> Using $\alpha = 0:05$, we would reject the null hypothesis. Thus, age has a statistically significant relationship with the probability of labor force participation by women.
+
+\newpage 
+
+## Interpret an effect
+What is the effect of a decrease in age by $5$ years on the odds of labor force participation for a female who was $45$ years of age.
+
+> Recall our model:
+
+$$
+log(\frac{\pi}{1-\pi}) = \beta_0 + \beta_1 age + \beta_2 age\_squared + \beta_3 inc + \beta_4 wc + \beta_5 hc + \beta_6 lwg + \beta_7 totalKids
+$$
+
+> The odds ratio for an increase in age by $5$ is expressed in the following formula:
+
+$$
+OR = exp(5 \beta_1 + 5 \beta_2(2 \times age + 5) )
+$$
+
+> which depends on the level of age.
+
+> Let's compute the numerical change of the odds ratio by inserting the estimates to the formula above from the model stored in mroz.glm1, which is used here because we have tested that the age effect is significant.
+
+```{r}
+c = -5
+age = 45
+
+OR.change = exp(c*(coefficients(mroz.glm1)[['age']] + 
+                     coefficients(mroz.glm1)[['age_squared']]*(2*age + c)))
+
+OR.change
+
+```
+
+
+> Therefore, the estimated odds of labor force participation (lfp) of females who are $45$ years of age increase by $1.18$ times for five years increase in age.
+
+\newpage
+
+## Construct a confidence interval 
+Estimate the 95% profile likelihood confidence interval of the probability of labor force participation for females who were 40 years old, had income equal to 20, did not attend college, her husband attend college, had log wage equal to 1, and did not have children.
+
+```{r}
+library(mcprofile)
+
+# Define the contrast matrix
+K = matrix(data = c(1, 40, 40^2, 20, 0, 1, 1, 0), nrow = 1, ncol = 8)
+
+# Calculate -2log(Lambda)
+linear.combo = mcprofile(object = mroz.glm1, CM = K)
+
+# CI for the linear prredictor
+ci.logit.profile <- confint(object = linear.combo, level = 0.95)
+ci.logit.profile
+
+names(ci.logit.profile)
+
+# CI for probability 
+exp(ci.logit.profile$confint)/(1 + exp(ci.logit.profile$confint))
+```
+
+
+> Thus, the 95% profile likelihood confidence interval of the probability of labor force participation for females who were 40 years old, had income equal to 20, did not attend college, her husband attended college, had log wage equal to 1, and did not have children is $0.586<\pi<0.779$
+
+
+
+
+
+
+
+
+
