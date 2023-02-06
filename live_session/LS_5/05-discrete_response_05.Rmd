@@ -321,42 +321,6 @@ $$\log(mean\_num\_awards) = \beta_0 + \beta_1 prog + \beta_2 math + u$$
 
 \newpage
 
-### Directly Testing for Over Dispersion
-
-We can use a dispersion test for Poisson regression from the AER package that tests the null hypothesis that $\theta=1$ vs. not in a regression of the form $Var(Y_i)=(1+\alpha)*\lambda_i$.
-
-Note that if we set $(1+\alpha)=\theta$ we get the variance form for a quasipoisson above. So this test is examining whether the variance of our outcome variable appears to come from a Poisson or quasipoisson distribution.
-
-If we reject the null hypothesis due to a small p-value, we have overdispersion if $\alpha>0$ and underdispersion (smaller variance in reality which is less common) if $\alpha<0$.
-
-The test itself reports the estimated dispersion value along with a p-value.
-
-```{r}
-# replace with your code
-```
-
-If we reject the null hypothesis in an overdispersion test, that means we should fit a quasipoisson or negative binomial regression.
-
-We can fit quasipoisson directly using glm and specifying the appropriate family. For a negative binomial using regression, we need to use glm.nb from the MASS package.
-
-```{r}
-# quasipoisson regression
-
-# quasi.poisson <- uncomment and replace with your code
-```
-
-```{r}
-# negative binomial regression
-
-# neg.binom <- uncomment and replace with your code
-```
-
-```{r}
-# stargazer(poisson.mod.1, quasi.poisson, neg.binom, type="text")
-```
-
-\newpage
-
 ### Model Comparison Criteria
 
 Recall that the general form of most information criteria is:
@@ -480,6 +444,43 @@ $$D=2\sum_{i=1}^{n}\biggl[y_{i}\log\biggl(\frac{y_{i}}{\exp\{\textbf{X}_{i}\hat{
 
 # Replace with your code
 ```
+
+\newpage
+
+### Directly Testing for Over Dispersion
+
+We can use a dispersion test for Poisson regression from the AER package that tests the null hypothesis that $\theta=1$ vs. not in a regression of the form $Var(Y_i)=(1+\alpha)*\lambda_i$.
+
+Note that if we set $(1+\alpha)=\theta$ we get the variance form for a quasipoisson above. So this test is examining whether the variance of our outcome variable appears to come from a Poisson or quasipoisson distribution.
+
+If we reject the null hypothesis due to a small p-value, we have overdispersion if $\alpha>0$ and underdispersion (smaller variance in reality which is less common) if $\alpha<0$.
+
+The test itself reports the estimated dispersion value along with a p-value.
+
+```{r}
+# replace with your code
+```
+
+If we reject the null hypothesis in an overdispersion test, that means we should fit a quasipoisson or negative binomial regression.
+
+We can fit quasipoisson directly using glm and specifying the appropriate family. For a negative binomial using regression, we need to use glm.nb from the MASS package.
+
+```{r}
+# quasipoisson regression
+
+# quasi.poisson <- uncomment and replace with your code
+```
+
+```{r}
+# negative binomial regression
+
+# neg.binom <- uncomment and replace with your code
+```
+
+```{r}
+# stargazer(poisson.mod.1, quasi.poisson, neg.binom, type="text")
+```
+
 
 \newpage
 
