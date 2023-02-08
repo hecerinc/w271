@@ -1,0 +1,310 @@
+---
+title : 'W271 Assignment 3 Solution'
+output: 
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+```{r load packages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(car)
+library(sandwich)
+library(lmtest)
+library(knitr)
+library(Hmisc)
+library(gridExtra)
+library(stargazer)
+library(mcprofile)
+```
+
+
+# Admission Data: Binary Logistic Regression 
+(One point per question/sub-question. Eight points total.)
+
+The dataset *"admissions.csv"* contains a small sample of graduate school admission data from a university. The variables are specified below:
+
+  1. `admit` - the dependent variable that takes two values: $0,1$ where $1$ denotes *admitted* and $0$ denotes *not admitted*
+  2. `gre`  - GRE score
+  3. `gpa`  - College GPA
+  4. `rank` - rank in college major
+
+Suppose you are hired by the University's Admission Committee and are charged to analyze this data to quantify the effect of GRE, GPA, and college rank on admission probability. We will conduct this analysis by answering the following questions:
+
+```{r read admission data, message=FALSE, warning=FALSE}
+admission <- read_csv('./data/admissions.csv')
+```
+
+## Examine the data and conduct an EDA
+Examine the data and conduct EDA. Are there any points that are strange, or outlying? Are there any features of the data that affect how you will analyze it?
+
+**1.1. Solution**
+
+```{r}
+str(admission)
+describe(admission)
+
+```
+
+The data set, imported into R as a data.farme called *df*, contains $400$ observations and $4$ variables.
+
+  - None of the variables has missing values
+
+  - Both GRE and GPA are a numeric variables
+
+  - rank is an ordinal variable
+
+  - *admit*, which is a binary variable taking values of 0 and 1, is our dependent (or target) variable
+
+  - all the other three variables, *GRE, GPA, rank*, are potential explanatory variables
+
+# Univariate Exploratory Data Analysis
+```{r}
+#crosstab(df$admit, row.vars = "0/1", col.vars = "Admit", type = "f")
+
+# Dependent variable: admit
+admission %>%
+  count(admit) %>%
+  mutate(prop = round(prop.table(n),2)) %>%
+  kable(col.names = c('Admit', 'N', "Proportion"))
+
+# Explanatory Variables:
+plot_hist = function(data, var, title) {
+  bw = diff(range(var)) / (2 * IQR(var) / length(var)^(1/3))
+  p <- ggplot(data, aes(var))
+  p + geom_histogram(fill="navy", bins=bw) + ggtitle(title) + 
+    theme(plot.title = element_text(lineheight=1, face="bold")) 
+}
+
+# Explanatory Variable: GRE
+p1 <- plot_hist(data=admission, var=admission$gre,title="GRE")
+
+# Explanatory Variable: GPA
+p2<- plot_hist(data=admission, var=admission$gpa,title="GPA")
+
+
+grid.arrange(p1, p2, nrow = 1, ncol = 2)
+
+# Explanatory Variable: rank
+admission %>%
+  count(rank) %>%
+  mutate(prop = round(prop.table(n),2)) %>%
+  kable(col.names = c('Rank', 'N', "Proportion"))
+
+
+```
+
+**Dependent Variable: admit**
+
+The dependent variable, *admit*, is a binary variable taking only values from $0$ or $1$. Out of $400$ students, $237$ (or $68.25\%$) are not admitted and $127$ (or $31.75\%$) are admitted.
+
+**Explanatory Variables: GRE and GPA**
+
+The variable, *GRE*, is a numeric variable that is slightly left-skewed with a mass of observations at $800$. For this exercise, I will not transform this variable or bin out the observations at $800$. I discussed some of the binning strategies in class.
+
+The variable, *GPA*, is a numeric variable that is left-skewed, with most of the values falling above the value $3.0$ and a mass of observations at $4.0$. At this point of the analysis, I will not decide whether or not transformation will be conducted.
+
+# Bivariate Exploratory Data Analysis
+```{r}
+plot_box = function(data,x,y,title) {
+  ggplot(data, aes(factor(x), y)) +  
+  geom_boxplot(aes(fill = factor(x))) + 
+  geom_jitter() +
+  coord_flip() +
+  ggtitle(title) + 
+  theme(plot.title = element_text(lineheight=1, face="bold")) 
+}
+
+# Admit and GRE
+p3 <- plot_box(admission, x=admission$admit, y=admission$gre,
+               title="Figure 1: Admission Status by GRE")
+
+# Admit and GPA
+p4 <- plot_box(admission, x=admission$admit, y=admission$gpa, 
+               title="Figure 2: Admission Status by GPA")
+
+grid.arrange(p3, p4, nrow = 2, ncol = 1)
+
+
+# Admit and Rank
+round(prop.table(xtabs(~ admission$admit + admission$rank),2),2)
+
+```
+
+From the bivariate analysis, students who were admitted, not surprisingly, tend to have higher GRE and GPA (Figure 1 and 2), and students who had higher GPA also tended to have higher GRE scorer, as shown in Figure 3. I said "tend to" because there were admitted students who had low GPA. In fact, taking pretty much any value of GPA, there were students who were admitted and students who did not.
+
+There also a strong bi variate relationship between rank and admit: as the rank went down, admission rate also went down, as shown in the two frequency tables. 
+
+
+## Estimate a logistic regression
+Estimate the following binary logistic regressions: 
+
+$$
+  \begin{aligned}
+    Y = \beta_{0} & + \beta_{1} GRE + \beta_{2} GPA + \beta_{3} RANK + e & \text{(Model 1)} \\ 
+    Y = \beta_{0} & + \beta_{1} GRE + \beta_{2} GPA + \beta_{3} RANK & \text{(Model 2)} \\ 
+      & + \beta_{4} GRE^2 + \beta_{5} GPA^2 + e\\
+    Y = \beta_{0} &+ \beta_{1} GRE + \beta_{2} GPA + \beta_{3} RANK & \text{(Model 3)} \\ 
+      & + \beta_{4} GRE^2 + \beta_{5} GPA^2 \\ 
+      & + {\beta}_6 GRE \times GPA + e
+  \end{aligned}
+$$
+
+where $GRE \times GPA$ denotes the interaction between `gre` and `gpa` variables.
+
+**1.2 Solution**
+
+```{r estimate logistic regression with interaction}
+model_admission_1 <- glm(admit ~ gre + gpa + rank, family = binomial, data = admission)
+model_admission_2 <- glm(admit ~ gre + gpa + rank + I(gre^2) + I(gpa^2), 
+                         family = binomial, data = admission) 
+model_admission_3 <- glm(admit ~ gre + gpa + rank + I(gre^2) + I(gpa^2) + gre:gpa, 
+                         family = binomial, data = admission)
+
+## display estimated model in a table
+
+stargazer(model_admission_1, model_admission_2, model_admission_3, type = "text", 
+          omit.stat = "f", star.cutoffs = c(0.05, 0.01, 0.001),
+          title = "Table 1: The estimated relationship between Admission and GRA, GPA, and Students' Rank")
+
+```
+
+## Test hypotheses
+### Linear effect: class rank
+Using `model_admission_1`, test the hypothesis that class rank has no effect on admission using a likelihood ratio test. Suppose that someone asks, "Are we willing to assume that there is a *linear* effect of class rank as we have in `model_admission_1`?" 
+
+
+**1.3.1 Solution**
+
+```{r rank effect}
+# Test the hypothesis
+Anova(model_admission_1, test = "LR")
+
+```
+
+>As p-value of rank is under 0.05, the null hypothesis of $H_0:{\beta}_3=0$ is rejected. Rank has an effect on admission in the presence of GPA and GRE.
+
+### Linear effect: GRE
+Test the hypothesis that $\beta_{1} = 0$ in `model_admission_2` using a likelihood ratio test. Interpret what this test result means in the context of a model like what you have estimated in `model_admission_2`. 
+
+Then, test the same hypothesis in `model_admission_3` using a likelihood ratio test. Interpret what this test result means in the context of a model like what you have estimated in `model_admission_3`. 
+
+**1.3.2 Solution**
+
+```{r GRE LRT}
+# Test the hypothesis
+Anova(model_admission_2, test = "LR")
+Anova(model_admission_3, test = "LR")
+
+
+```
+
+>As p-value of GRE is above 0.05, the null hypothesis of $H_0:{\beta}_1=0$ is not rejected in both specification 2 and 3.  So GRE has no linear effect on admission.
+
+
+### Total effect: GRE
+Test the hypothesis that $GRE$ has no effect on the likelihood of admission, in a model of admissions defined in `model_admission_3`, using a likelihood ratio test. 
+
+**1.3.3 Solution**
+
+```{r test for no GRE effect}
+# Estimate the model under the null hypothesis
+model_admission_3_h0 <- glm(admit ~ gpa + rank + I(gpa^2), 
+                            family = binomial, data = admission)
+
+# Test the hypothesis
+anova(model_admission_3_h0, model_admission_3, test = "Chisq")
+
+
+```
+
+>As p-value is below 0.05, the null hypothesis of $H_0:{\beta}_1={\beta}_4={\beta}_6=0$ is rejected and GRE has an overall effect on admission.
+
+# Interpret an effect
+
+Using the entire model, make predictions about how the likelihood of being admitted changes for someone with a $GPA = 3.0$ compared to someone with a $GPA = 4.0$ both with $GRE=600$. 
+
+**1.4. Solution**
+
+
+
+The estimated model is
+$$
+logit(\hat{\pi}) = -7.092 + 0.0185GRE - 0.0080GPA -0.5643rank + 0.0GRE^2 + 0.65GPA^2 - 0.0060GRE*GPA
+$$
+
+The estimated effect on the odds of admission when GPA change by $k$ units of GPA is
+$$
+\begin{aligned}
+\widehat{OR} &= \frac{Odds_{GPA + k}}{Odds_{GPA}} \\
+&= \frac{exp(-7.092 + 0.0185GRE - 0.0080(GPA+k) -0.5643rank + 0.0GRE^2 + 0.65(GPA+k)^2 - 0.0060GRE*(GPA+k))}{exp(-7.092 + 0.0185GRE - 0.0080GPA -0.5643rank + 0.0GRE^2 + 0.65GPA^2 - 0.0060GRE*GPA)} \\
+&= exp(-0.0080k + (2 \times GPA+k) \times 0.65k - 0.0060k*GRE)
+\end{aligned}
+$$
+> Due to the quadratic term associated with GPA and the interaction between GRE and GPA, the estimated effect on admission of GPA is a function of both the GPA and GRE. In this question $k=1$, $GPA=3.0$, and $GRE=600$. The calculation is detailed below.
+
+```{r}
+coef <- coef(model_admission_3)
+coef
+impact_GPA = function(k,GRE,GPA) {
+  exp(k*(coef[3]+ coef[6]*(2*GPA + k)  + coef[7]*GRE))
+}
+
+impact_GPA(k=1, GRE=600, GPA=3.0)
+
+```
+> For students with GRA= 600, the odds of being addmited change by 2.6 times for a 1 unit increase in GPA from 3 to 4.
+
+
+# Construct a confidence interval 
+Construct the 95% Profile LR confidence interval for the admission probability for the students with the following profile using **model_admission_3**: 
+
+- $GPA  = 3.3$; 
+- $GRE  = 720$; and, 
+- $rank = 1$
+
+
+- $GPA  = 2.5$; 
+- $GRE  = 790$; and,  
+- $rank = 4$. 
+
+**1.5. Solution**
+
+```{r construct confidence interval for admission}
+
+gpa=c(3.3,2.5); gre=c(720,790); rank=c(1,4)
+
+predict.data = data.frame(intercept=1, 
+                          gre=gre,
+                          gpa=gpa,
+                          rank=rank,
+                          gre_sq = gre^2,
+                          gpa_sq = gpa^2,
+                          gre_gpa= gre*gpa)
+
+predict(object=model_admission_3, newdata=predict.data,type="link")
+pi.hat = predict(object=model_admission_3, newdata=predict.data,type="response")
+round(pi.hat,2)
+
+K = as.matrix(predict.data)
+K
+
+# Calculate -2log(Lambda)
+linear.combo <- mcprofile(object = model_admission_3, CM = K)
+# CI for linear combo 
+ci.logit.profile <- confint(object = linear.combo, level = 0.95, adjust = "none")
+# CI for pi.hat
+CI.hat <- round(exp(ci.logit.profile$confint)/(1 + exp(ci.logit.profile$confint)),3)
+
+admission_probabilty_ci <- data.frame(pi.hat = round(pi.hat,2), CI.hat )
+admission_probabilty_ci
+
+```
+
+Are the prediction intervals for these two predictions the same? Why or why not? What about the data leads to this similarity or difference? 
+
+> The estimated admission probability for the first student is higher with a narrower confidence interval. Although this student has a lower grade, their higher GPA and rank lead to a higher probability of admission. 
+
+
+
