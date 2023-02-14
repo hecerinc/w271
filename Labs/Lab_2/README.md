@@ -8,10 +8,7 @@ You must submit a PDF of your compiled analysis and your code (.rmd) to Gradesco
 
 ## Guidance
 
-- In this report, you _should not_ need to show code that produces figures or tables; but, you _should_ show code that estimates models and standard errors. For example:
-  - You should show code that estimates using `glm()` and `vcovHC`. 
-  - But, you should now show code that produces `ggplot()` or `stargazer()` tables.
-- You should use appropriate report writing style. 
+- In this report, ou should use appropriate report writing style. 
   - Language should be professional. This does not mean "fancy" or "academic" but rather that it should show respect for the reader. The Dalal, Fowlkes and Hoadley (1989) paper that you read is a good model of this style of writing. 
 - You should use an appropriate reporting style. 
   - Tables, figures, and models that you present are the evidence for the argument that you are making. 
