@@ -182,7 +182,7 @@ The current consensus is that the random walk is explained by the efficient mark
 
 **This exercise aims to investigate whether the cryptocurrency market is predictable and if the efficient market hypothesis is true**
 
-To test the null hypothesis of random walk or efficient market, we estimate an ARIMA and a random walk model for the period 01/2017 to 01/2022 and compare the six-month a head forecast performances of these two models. If the ARIMA model outperforms the random walk model, it suggests that the cryptocurrency market is not efficient during the sample period.
+To test the null hypothesis of random walk or efficient market, we estimate an ARIMA and a random walk model for the period 01/01/2017 to 06/30/2022 and compare the six-month a head forecast performances of these two models. If the ARIMA model outperforms the random walk model, it suggests that the cryptocurrency market is not efficient during the sample period.
 
 \newpage
 
@@ -220,7 +220,7 @@ We use a Quandl package to download the bitcoin prices from Quandl(). Quandl is 
 
 ### Training and test sets
 
-In order to evaluate forecast accuracy, we separate the data set into training and test data. The training data is used to estimate model parameters, and it is for 01/2017-04/2022. The test data is used to evaluate its accuracy, and it is for 01/2022-current. 
+In order to evaluate forecast accuracy, we separate the data set into training and test data. The training data is used to estimate model parameters, and it is for 01/01/2017-12/31/2021. The test data is used to evaluate its accuracy, and it is for 01/01/2022-06/30/2022. 
 
 ```{r}
 # bitcoin_training <-bitcoin_daily %>%
