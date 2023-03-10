@@ -8,7 +8,7 @@ output:
 
 ```{r load packages, message=FALSE, warning=FALSE}
 library(tidyverse)
-library(patchwork) 
+library(patchwork)
 
 library(lubridate)
 
@@ -60,8 +60,8 @@ flights
 flights <- nycflights13::flights %>% mutate(time_index =  make_datetime(year, month, day, hour, minute, tz = "America/New_York"))
 flights <- as_tsibble(
 	flights,
-	key = c(carrier, flight), 
-	index = time_index, 
+	key = c(carrier, flight),
+	index = time_index,
 	regular = FALSE
 )
 weather <- as_tsibble(weather, key=origin, index=time_hour)
@@ -218,7 +218,7 @@ yearly_plot /
     title    = 'Temperature at New York City Airports',
     subtitle = 'Many Different Views',
     tag_levels = 'A') &
-  labs(x = NULL, y = 'Temperature') 
+  labs(x = NULL, y = 'Temperature')
 ```
 
 ## (1 point) Hourly ACF
@@ -405,13 +405,13 @@ Your target dataframe should have the following shape but extend to the current 
 
     year month time_index name    value
        <int> <int>      <mth> <chr>   <dbl>
-     1  2000     1   2000 Jan overall   4  
+     1  2000     1   2000 Jan overall   4
      2  2000     1   2000 Jan male      3.9
      3  2000     1   2000 Jan female    4.1
      4  2000     2   2000 Feb overall   4.1
      5  2000     2   2000 Feb male      4.1
      6  2000     2   2000 Feb female    4.1
-     7  2000     3   2000 Mar overall   4  
+     7  2000     3   2000 Mar overall   4
      8  2000     3   2000 Mar male      3.8
      9  2000     3   2000 Mar female    4.3
     10  2000     4   2000 Apr overall   3.8
