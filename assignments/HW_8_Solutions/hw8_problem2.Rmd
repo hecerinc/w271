@@ -1,0 +1,439 @@
+---
+title: "W271 Assignment 7 (Solutions)"
+output: pdf_document
+date: ' '
+---
+
+```{r setup, include=FALSE}
+library(plyr)
+library(dplyr)
+library(magrittr)
+library(tidyr)
+library(fable)
+library(tsibble)
+library(ggplot2)
+library(ggthemes)
+library(zoo)
+library(feasts)
+library(blsR)
+library(lubridate)
+library(patchwork)
+```
+
+# (14 points total) Question-1: Is Unemployment an Autoregressive or a Moving Average Process? 
+
+You did work in a previous homework to produce a data pipeline that pulled the unemployment rate from official BLS sources. Reuse that pipeline to answer this final question in the homework: 
+
+> "Are unemployment claims in the US an autoregressive, or a moving average process?
+
+## (1 point) Part-1: Why is the distinction important? 
+
+Why is it important to know whether a process is a $AR$ or an $MA$ (or a combination of the two) process? What changes in the ways that you would talk about the process, what changes in the ways that you would fit a model to the process, and what changes with how you would produce a forecast for this process?
+
+- The AR(p) and the MA(q) models address different forms of dependence between observations over time. The class of AR(p) models describes the direct (and indirect) linear dependence between observations over time while MA(q) models describe the dependence in the innovation processes rather than the observations themselves. Separately, these classes of models therefore allow to take into account two extremely common dependence settings within time series.
+
+- AR(p) models need to respect the condition of statianry (since they are always invertible) while MA(q) models need to respect the condition of invertibility (since they are always stationary). 
+
+- The ACF and PACF plots of AR(p) and MA(q) models are quite informative in terms of understanding which of the two classes of models an observed time series could have been generated from. The roles of the ACF and PACF in identifying the kind of AR(p) models underlying an observed time series is completely inversed when considering MA(q) models. 
+
+- AR(P) could be estimated using differnt methods including: 
+
+1) Method of moments estimator (e.g. Yule-Walker estimator)
+2) Maximum Likelihood Estimation (MLE) estimator
+3) Ordinary Least Squares (OLS) estimator
+
+- MA(q) estimation is more difficult than AR model, but it could be estimated using MLE and Method of moment.
+
+
+## (1 point) Part-2: Pull in (and clean up) your data pipeline. 
+
+In the previous homework, you built a data pipeline to draw data from the BLS. We are asking you to re-use, and if you think it is possible, to improve the code that you wrote for this pipeline in the previous homework. 
+
+- Are there places where you took "shortcuts" that could be more fully developed?
+- Are the processes that could be made more modular, or better documented so that they are easier for you to understand what they are doing? You've been away from the code that you wrote for a few weeks, and so it might feel like "discovering" the code of a *mad-person* (Who even wrote this???)
+
+
+```{r}
+unemployment <- get_n_series_table(
+  series_ids=list(
+    overall='LNS14000000',
+    male='LNS14000001',
+    female='LNS14000002'), 
+  api_key = '21c01016e3a14d2888519292883a447a',
+  start_year=2000,
+  end_year=2023,
+  tidy = TRUE
+)
+```
+
+```{r tidy unemployment data}
+unemployment <- unemployment %>%
+  mutate(time_index = make_datetime(year,month)) %>%
+  mutate(time_index = yearmonth(time_index)) %>% 
+  as_tsibble(index=time_index) %>%
+  select(time_index, overall)
+
+
+```
+
+```{r demonstrate success}
+head(unemployment)
+```
+
+## (5 points) Part-3: Conduct an EDA of the data and comment on what you see. 
+
+We have presented four **core** plots that are a part of the EDA for time-serires data. Produce each of these plots, and comment on what you see.
+
+```{r, warning=FALSE}
+time_plot <- unemployment %>%
+  ggplot() +
+  aes(x=yearmonth(time_index),y=overall) +
+  geom_line() +
+  labs(
+    title = 'Unemployment in the United States',
+    subtitle = 'Dang, look at that COVID effect',
+    x = NULL, y = 'Unemployment Rate', 
+    color = 'Emplyoment Group') +
+  theme(legend.position = c(.2,.8))
+
+overall_acf <- unemployment %>% 
+   ACF(y=overall) %>% 
+  autoplot()
+
+overall_pacf <- unemployment %>% 
+  ACF(y=overall, type = "partial") %>% 
+  autoplot()
+
+hist<- unemployment %>%
+  ggplot() +
+  geom_histogram(aes(x=overall)) +
+  labs(
+    x = 'Unemployment Rate') +
+  theme(legend.position = c(.2,.8))
+
+(time_plot + hist) / 
+  (overall_acf + overall_pacf) 
+
+```
+
+- The time plot shows some non-stationarity. It has apparent trends up or down with sudden and unpredictable changes in
+direction. 
+
+- There is no evidence of changing variance, so we will not do a log transformation.
+
+- Since this is probably a non-stationary series, its distribution change over and the histogram is not really informative. 
+
+- The ACF decays slowly, and the first bar of the PACF is almost equal to 1.
+
+- To address the non-stationarity, we will take a first difference of the data. The differenced data are shown blow:
+
+```{r warning=FALSE}
+unemployment %>%
+  gg_tsdisplay(difference(overall), plot_type='partial')
+```
+
+- The differnced series now appear to be stationary.
+
+- The ACF and PACF shows that all autocorrelations are within the threshold limits, indicating that the differenced series is behaving like white noise. 
+
+- So an initial candidate model is an ARIMA(0,1,0). 
+
+## (1 point) Part-4: Make a Call 
+
+Based on what you have plotted and written down in the previous section, would you say that the unemployment rate is an $AR$, $MA$ or a mix of the two?
+
+The first-differncing of the time series has allowed to make it apparently stationary so an ARIMA(p,d,q) model with d=1 could be a good class of models to explain and predict the time series. The ACF and PACF plots would suggest ARIMA(0,1,0) since both the ACF and PACF are insignificant starting from the first lags. 
+
+This means that unemployment rate is a random walk process, and the changes in unemployment rate is a white noise process and unpredictable, and our best guess about the future uenmployment rate is today’s unemployment rate.
+
+
+## (6 points total) Part-5:  Estimate a model 
+
+Report the best-fitting parameters from the best-fitting model, and then describe what your model is telling you. In this description, you should: 
+
+- (1 point) State, and justify your model selection criteria. 
+- (1 point) Interpret the model selection criteria in context of the other models that you also fitted.
+- (2 points) Interpret the coefficients of the model that you have estimated. 
+- (2 points) Produce and interpret the model diagnostic plots to evaluate how well your best-fitting model is performing.
+- (1 (optional) point) If, after fitting the models, and interpreting their diagnostics plots, you determine that the model is doing poorly -- for example, you notice that the residuals are not following a white-noise process -- then, make a note of the initial model that you fitted then propose a change to the data or the model in order to make the model fit better. If you take this action, you should focus your interpretation of the model's coefficients on the model that you think does the best job, which might be the model after some form of variable transformation. 
+
+
+- We need to use a unit root test to confirm whether differencing is required:
+
+```{r}
+unemployment %>%
+  features(overall, unitroot_kpss)
+
+unemployment %>%
+  mutate(diff_value = difference(overall)) %>%
+  features(diff_value, unitroot_kpss)
+```
+
+- In KPSS unit root test the null hypothesis is that the series is stationary. 
+
+- For the unemployment rate, the p-value is 0.04122915, which is less than 0.05, indicating that the null hypothesis
+of stationary is rejected. So first difference is required.
+
+- For the difference of the unemployment rate, the p-value is 0.1, and it is greater than 0.05, so we fail to reject
+the null hypothesis of stationary.
+
+- Only one difference is required to make the uenployemnt stationary.
+
+- We use ARIMA() to estimate a ARIMA model with lowest corrected AIC. 
+
+```{r}
+
+unemployment_fit <- unemployment %>%
+  model(
+arima_fit = ARIMA(overall)
+ ) %>%
+  report()
+
+```
+- The ARIMA() has found that an ARIMA(0,1,0) gives the lowest AICc value, which confirmS our initial guess.
+
+- The standard deviation of the residual is 0.460 which is an estimate for the varaince of white noise process.
+
+- In th next step we need to do the model diagnostic using residuals plot and the Ljung-box test.
+
+```{r}
+unemployment_fit %>% 
+  gg_tsresiduals()
+```
+
+- The ACF plot of the residuals from the ARIMA(0,1,0) model shows that all autocorrelations are within the threshold limits, indicating that the residuals are behaving like white noise.
+
+```{r}
+augment(unemployment_fit) %>%
+  features(.innov, ljung_box, lag = 10, dof = 0)
+
+```
+
+- A  ljung-box test returns a large p-value, also suggesting that the residuals are white noise.
+
+- Finally let's use our fitted model to forecast next two years unemployment rate.
+
+```{r}
+
+unemployment_fit %>%
+  forecast(h=24) %>%
+  autoplot(unemployment)
+```
+
+- As we expect for a random walk process, all the forecasts of unemployment rate are constant and equal to the last observed unemployemnt rate , and the prediction interval increase with the forecast’s horizon.
+
+
+# (14 Points Total) Question-2: COVID-19 
+
+The United States Centers for Disease Control maintains the authoritative dataset of confirmed and probable COVID-19 cases.
+
+- This data is described on this page [[link](https://data.cdc.gov/Case-Surveillance/United-States-COVID-19-Cases-and-Deaths-by-State-o/9mfq-cb36)]. 
+- The data is made available via an API link on this page as well. 
+
+# (1 point) Part-1: Access Data
+
+Use the public API to download the CDC COVID-19 data and store in a useful dataframe. A useful dataframe: 
+
+- Should have useful variable names; 
+- Should be in a format that can be used for time series modeling;  
+- Should have appropriate time indexes (and possibly keys) set; but, 
+- At this point, should not have derivative features mutated onto the data frame; nor, 
+- Should it be aggregated or summarized. 
+
+```{r}
+#we get the data directly from the website as a CSV instead of using the API endpoint
+dat<-read.csv("./covid_case_data.csv")
+
+head(dat)
+colnames(dat)
+
+dat<-dat %>%
+  mutate(submission_date=as.Date(submission_date,format="%m/%d/%Y")) %>%
+  select(submission_date,state,tot_cases) %>%
+  arrange(state,submission_date) %>%
+  as_tsibble(key=state,index=submission_date)
+```
+
+# (5 points) Part-2: Pick a State and Produce a Model
+
+1. Choose a state that is not California (we are putting this criteria in so that we see many different states chosen); 
+2. Produce a 7-day, backward smoother of the total case rate; then,  
+3. Produce a model of COVID cases in that state. This should include: 
+  - Conducting a full EDA and description of the data that you observe 
+  - Estimating a model (either AR or MA) that you believe is appropriate after conducting your EDA
+  - Evaluating the model performance through diagnostic plots 
+
+- We pull COVID cases in the state of Massachusetts.
+
+- The plot below shows that the total cases has a non linear trend. The ACF is characteristic of a process with a trend. The PACF plot only has a significant term at lag 1.
+
+- When data is nonlinear / nonconstant like this, it can be helpful to work off of the log of the series.
+
+```{r}
+ma.dat<-dat %>%
+  filter(state=="MA")
+
+ma.dat %>%
+  gg_tsdisplay(tot_cases,plot_type="partial")
+```
+
+- The plot below shows both the original daily total cases in MA and also the 7 day moving average over time. Both overap a lot because the time series is already overly smooth given it is total daily cases which does not change much day to day.
+
+```{r}
+ma.dat<-ma.dat %>%
+  mutate(avg7d=rollmean(tot_cases,k=7,fill=0,align="right"))
+
+ma.dat %>%
+  ggplot(aes(submission_date,tot_cases)) +
+  geom_point(alpha=0.1,color="cornflowerblue") +
+  geom_line(aes(submission_date,avg7d),lwd=1,alpha=0.4,col="orange1") +
+  theme_economist_white(gray_bg=F) +
+  xlab("Date") +
+  ylab("Total Cases in MA")
+```
+
+- We use BIC to fit the optimal model below, which results in an AR model with 6 lags and an order of differencing of 2. All selected coefficients are significant.
+
+```{r}
+model.fit<-ma.dat %>%
+  model(ts.model=ARIMA(tot_cases~0+pdq(0:10,0:2,0:10)+PDQ(0,0,0),ic="bic",greedy=F,stepwise=F))
+
+model.fit$ts.model
+
+model.fit %>% coef()
+```
+
+- The plot below shows the residuals are not well behaved and there are some significant lags still.
+
+```{r}
+model.fit %>%
+  augment() %>%
+  gg_tsdisplay(.resid,plot_type="partial")
+```
+
+- The Box Ljung test also rejects that the null hypothesis that the autocorrelation in the residuals is zero as expected.
+
+```{r}
+model.fit %>%
+  augment() %>%
+  features(.resid,ljung_box,lag=10)
+```
+
+- Given the results above we fit a new model with additional parameters from the optimal version chosen by BIC. Because the ACF plot exhibits some cylicality and significant lags, we opt to add 8 MA lags.
+
+```{r}
+model.fit2<-ma.dat %>%
+  model(ts.model=ARIMA(tot_cases~0+pdq(6,2,8)+PDQ(0,0,0),ic="bic",greedy=F,stepwise=F))
+
+model.fit2$ts.model
+
+model.fit2 %>% coef()
+```
+
+- The residuals plots seem much better behaved, especially up to lag 10, and the Box Ljung test does not reject the null hypothesis up to lag 10, meaning we have statistical evidence that the residuals behave like white noise.
+
+```{r}
+model.fit2 %>%
+  augment() %>%
+  gg_tsdisplay(.resid,plot_type="partial")
+```
+
+```{r}
+model.fit2 %>%
+  augment() %>%
+  features(.resid,ljung_box,lag=10)
+```
+
+#(5 points) Part-3: Produce a Nationwide Model
+
+1. Aggregate the state-day data into nationwide-day level data; 
+2. Produce a 7-day, backward smoother of the total case rate; then, 
+3. Produce a model of COVID cases across the US. Like the state model, this should include: 
+  - Conducting a full EDA and description of the data that you observe 
+  - Estimating a model (either AR or MA) that you believe is appropriate after conducting your EDA
+  - Evaluating the model performance through diagnostic plots
+
+
+- We repeat the same steps as above. The plot of the national data is very similar to the plot of MA data, along with the ACF and PACF plots.
+
+```{r}
+nat.dat<-dat %>%
+  as_tibble() %>%
+  group_by(submission_date) %>%
+  summarize(tot_cases=sum(tot_cases),.groups="drop") %>%
+  as_tsibble(index=submission_date)
+
+nat.dat %>%
+  gg_tsdisplay(tot_cases,plot_type="partial")
+```
+
+- Here is the time series plot with a 7 day smoother.
+
+```{r}
+nat.dat<-nat.dat %>%
+  mutate(avg7d=rollmean(tot_cases,k=7,fill=0,align="right"))
+
+nat.dat %>%
+  ggplot(aes(submission_date,tot_cases)) +
+  geom_point(alpha=0.1,color="cornflowerblue") +
+  geom_line(aes(submission_date,avg7d),lwd=1,alpha=0.4,col="orange1") +
+  theme_economist_white(gray_bg=F) +
+  xlab("Date") +
+  ylab("Total Cases in US")
+```
+
+- Unsuprisingly, BIC chooses the same national model as the state model.
+
+```{r}
+model.fit3<-nat.dat %>%
+  model(ts.model=ARIMA(tot_cases~0+pdq(0:10,0:2,0:10)+PDQ(0,0,0),ic="bic",greedy=F,stepwise=F))
+
+model.fit3$ts.model
+
+model.fit3 %>% coef()
+```
+
+- The residual plot makes clear that this is not an adequete model. Given the strong ACF plot, we add 5 ma terms and given the PACF plot, we also add 2 more AR terms.
+
+```{r}
+model.fit3 %>%
+  augment() %>%
+  gg_tsdisplay(.resid,plot_type="partial")
+```
+
+- The residual plots are better behaved now though there is somewhat of a seasonal pattern suggesting SARIMA may be more appropriate. We do fail to reject the null hypothesis of zero autocorrelation up to lag 10 in the Box Ljung test though.
+
+```{r}
+model.fit4<-nat.dat %>%
+  model(ts.model=ARIMA(tot_cases~0+pdq(10,2,5)+PDQ(0,0,0),ic="bic",greedy=F,stepwise=F))
+
+model.fit4 %>%
+  augment() %>%
+  gg_tsdisplay(.resid,plot_type="partial")
+```
+
+```{r}
+model.fit4 %>%
+  augment() %>%
+  features(.resid,ljung_box,lag=10)
+```
+
+# (3 points) Part-4: Write a few paragraphs about this modeling task
+
+The nationwide model that you just produced contains much **more** data than went into your state-level model. Does this make it a better model? Why or why not? 
+
+Without a requirement that you actually produce the model that you propose: If you were trying to produce a nationwide model, knowing: (a) what you know about the state model that you fit; (b) what you know about the nationwide model that you fit; and (c) what you, as a citizen of this world who has lived through these past years: *propose a modeling strategy you think will produce the best nationwide forecasting model*. 
+
+This could be, for example, the nationwide model that you have fitted above. Or, you might propose some other forms of data aggregation before modeling, or model aggregation but not data aggregation. In writing about your strategy, justify choices that you are making. 
+
+Our goal with this question is to ask that you not only conduct the narrow technical work, but also that you do the higher-level reasoning about the technical work. We would like you to write in full paragraphs, rather than bullet points that address specific parts of the prompt above. 
+
+
+- The national model is not naturally better because even though it has more data, that data is not full independent. We know state COVID cases are highly correlated because of spillover / infections from people traveling across state lines. Hence, there is not really a lot more data going into the national model vs. the state model.
+
+- To best forecast national COVID cases, one option that generally works well is called ensembling. The idea is we combine forecasts from several time series models together. Averaging models tends to work well because it helps errors in model one be cancelled out by other models.
+
+- For example, we could use an ensemble of (1) ARIMA model of nationwide covid cases and (2) a sum of 50 ARIMA models with one for each state. We could combine models by simply averaging their predictions or weight them by error on a test set.
+
+- Model (2) is what is known as a hierarchical time series model because we are forecasting individual components of a total and summing to get a forecast of the total. In particular this is a bottoms up forecasting process.
+
