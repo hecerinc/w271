@@ -1,0 +1,557 @@
+---
+title: "Unit 11 Live Session"
+output: 'pdf_document'  
+classoption: landscape
+editor_options: 
+  chunk_output_type: console
+---
+
+# Analysis of Panel Data: An Introduction
+
+![South Hall](./images/south_hall.png){width=50%}
+
+\newpage
+
+## Class Announcements
+
+-   Congratulations on finishing the second part of the course!
+
+-   HW 11 is out this week
+
+-   Lab-3 is due in 3 weeks
+
+## Roadmap
+
+**Rearview Mirror**
+
+-   Univariate Time Series Models
+
+-   Multivariate Time Series Models
+
+**Today**
+
+-   Introduction to panel data
+
+-   Exploratory panel data analysis
+
+-   Pooled OLS models
+
+-   First-Difference models
+
+**Looking Ahead**
+
+-   Fixed effect and random effect models
+
+-   Linear mixed-effect model
+
+\newpage
+
+## Start-up Code
+
+```{r message=FALSE, warning=FALSE}
+# Insert the function to *tidy up* the code when they are printed out
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+# Load libraries
+## Load a set of packages inclusing: broom, cli, crayon, dbplyr , dplyr, dtplyr, forcats,
+#googledrive, googlesheets4, ggplot2, haven, hms, httr, jsonlite, lubridate , magrittr, 
+#modelr, pillar, purrr, readr, readxl, reprex, rlang, rstudioapi, rvest, stringr, tibble, 
+#tidyr, xml2
+library(tidyverse)
+# Provide a set of estimators for models and (robust) covariance matrices and tests for panel data econometrics, 
+library(plm)
+## Functions, data sets, examples, demos, and vignettes for the book Christian Kleiber and Achim Zeileis (2008), 
+#Applied Econometrics with R
+library(AER)
+## provides geoms for ggplot2 to repel overlapping text labels.
+library(ggrepel)
+
+library(stargazer)
+```
+
+\newpage
+
+## Introduction to Panel Data
+
+Panel data combines cross-sectional and time series data: the same individuals (persons, firms, cities, etc.) are observed at several points in time (days, years, before and after treatment etc.).
+
+Panel data allows us to control for individual characteristics that we cannot observe or measure like:
+
+-   Cultural (like country or region-specific) factors;
+-   Difference in business practices across companies;
+
+or variables that change over time but not across individuals:
+
+-   National policies;
+-   Federal regulations;
+-   International agreements;
+
+## Panel structure
+
+Panel data includes N individuals observed at T regular periods. There are three general types of panel data:
+
+-   Short panel: many individuals (large N) over a few periods (small T) (we use this case in class)
+-   Long panel: many periods (large T) and few individuals (small N)
+-   Both: many periods and many individuals (large N and large T)
+
+Panel data can be balanced when all individuals are observed in all periods ($T_i = T$ for all i) or unbalanced when individuals are not observed in all periods ($T_i \neq T$).
+
+Analyzing unbalanced panel data typically raises a few additional issues compared with analysis of balanced data. For example, if the panel is unbalanced for reasons that are not entirely random (e.g., because firms with relatively low levels of productivity have relatively high exit rates), then we need to consider this when estimating the model.
+
+Repeated cross-sections are not the same as panel data. Repeated cross-sections are obtained by sampling from the same population at different points in time. The identity of the individuals (or firms, households, etc.) is not recorded, and there is no attempt to follow the same individuals over time. If each cross-section is drawn independently, combining the resulting random sample gives us an independent cross-section that can be modeled using OLS.
+
+\newpage
+
+## Framework for Panel Data
+
+- Consider the multiple linear regression model for individual $i = 1,....,N$ who is observed at several time periods $t = 1, ...,T$:
+
+$$y_{it} = \beta_0+\beta_1 x_{it}+\gamma_i +u_{it}$$
+
+where:
+
+-   $y_{it}$: a dependent variable
+
+-   $x_{it}$: an explanatory variable
+
+-   $\gamma_i$: an unobserved individual-specific effect(time-invariant)
+
+-   $u_{it}$: - an idiosyncratic error term (observation-specific zero-mean random-error term, analogous to the random-error term of cross-sectional regression analysis).
+
+\newpage
+
+## Estimation Methods
+
+Panel data models describe the individual behavior both across time and across individuals. We can consider three panel data models depending on the time-invariant unobserved effect and its relation to the other independent variables. These are:
+
+1- Pooled Cross Sections
+
+    - When there is no time-invariant unobserved effect
+
+2- Fixed Effects ("Within") Model:
+
+    - When there is a time-invariant unobserved effect
+
+    - The time-invariant unobserved effect is correlated with the explanatory variables
+
+3- Random Effects Model
+
+    - When there is a time-invariant unobserved effect
+
+    - The time-invariant unobserved effect is uncorrelated with the explanatory variables
+
+## The Pooled Cross Sections
+
+The pooled model simply applies an OLS estimate to the pooled data set where each individual i's data is ordered from $t=1,…,T$, and then vertically stacked.
+
+For pooled OLS to be the appropriate estimator, we need to assume:
+
+1- **Linearity**: the model is linear in parameters
+
+2- **i.i.d.** : The observations are independent across individuals but not necessarily across time. This is guaranteed by random sampling of individuals.
+
+3- **Indentifiability**: the regressors, including a constant, are not perfectly collinear, and all regressors (but the constant) have non-zero variance and not too many extreme values.
+
+4- $x_it$ is uncorrelated with idiosyncratic error term $u_{it}$ and individual-specific effect $\gamma_i$
+
+a)  $$E(u_{it} x_{it}) = 0$$
+
+b)  $$E(x_{it}, \gamma_i) = 0$$
+
+The pooled OLS estimator is consistent under assumptions 1-4.
+
+We need to assume homoskedasticity and no serial correlation in the data to do inference based on the conventional OLS estimator of the covariance matrix. Both of these assumptions can be restrictive. Therefore, it is a good idea to be conservative and obtain an estimate of the covariance matrix that is robust to heteroskedasticity and autocorrelation.
+
+a)- What are the main issues of pooled OLS?
+
+-   The main problem is that we do not observe $\gamma_i$, which is constant over time for each individual (hence no t subscript) but varies across individuals. Hence if we estimate the model in levels using OLS then $\gamma_i$ will go into the error term: $\epsilon_{it}= \gamma_i + u_{it}$.
+
+-   If $gamma_i$ is correlated with $x_{it}$, then putting $\gamma_i$ in the error term can cause serious problems. This, of course, is **an omitted variable problem**. For the single regressor model:
+
+$$plim \widehat{\beta_{ols}} = \beta+\frac{cov(x_{it},\gamma_i)}{\sigma^2_x}$$
+
+-   which shows that the OLS estimator is inconsistent unless $cov(x_{it}, \gamma_i) = 0$. If $x_it$ is positively correlated with the unobserved effect, then there is an upward bias. If the correlation is negative, we get a negative bias.
+
+-   **In this case, the fixed effect model is preferred because it is consistent in the case of these unobserved individual characteristics.**
+
+-   But if $\gamma_i$ is uncorrelated with $x_{it}$, then $\gamma_i$ is just another unobserved factor making up the residual. However, OLS will not be efficient (smallest variance) because the error term $\epsilon_{it}$ is serially correlated:
+
+$$corr(\epsilon_{it}, \epsilon_{it-s})=\frac{\sigma_\gamma}{\sigma_\gamma^2+\sigma_u^2}$$
+
+-   In this case OLS is still consistent. However, the standard formula for calculating the standard errors are wrong.
+
+-   **In this case, the random effects model is more efficient.**
+
+\newpage
+
+## Fixed Effects Model
+
+-   The fixed effects (FE) model is commonly applied to remove omitted variable bias in the case of unobserved individual characteristics. By estimating changes within a specific group (over time), all time-invariant differences between entities (individuals, firms, ...) are controlled for.
+
+-   The fixed effect model(FD) could be estimated using three estimation methods:
+
+1)  Least Squares Dummy Variable Estimation (LSDV)
+
+2)  First-difference Estimator (FD)
+
+3)  Fixed Effect or Within-groups Estimator (FE) (Next week)
+
+All fixed effect estimation methods are consistent under the following assumptions:
+
+1- **Linearity**: the model is linear in parameters
+
+2- **i.i.d.** : The observations are independent across individuals but not necessarily across time. This is guaranteed by random sampling of individuals.
+
+3- **Indentifiability**: the regressors, including a constant, are not perfectly collinear, and all regressors (but the constant) have non-zero variance and not too many extreme values.
+
+4- **Zero conditional mean (strict exogeneity)**
+
+$E(x_{it},u_{is}) =0$ for $s=1,2,3,....,T$
+
+-   Under the above assumptions, we can use the Fixed Effects (FE) estimators to obtain consistent estimates of $\beta$, allowing unobserved individual-specific $\gamma_i$ to be freely correlated with $x_{it}$.
+
+-   Note that strict exogeneity rules out feedback from past $u_{is}$ shocks to current $x_{it}$. One implication of this is that estimators will not yield consistent estimates if $x_{it}$ depends on lagged dependent variables $(y_{it-1}, y_{it-2},....)$ as in the case of a VAR model.
+
+\newpage
+
+### Least Squares Dummy Variable Estimator (LSDV)
+
+-   Least Squares Dummy Variable Estimator assumes different intercepts for each individual by includeing one dummy variables.
+
+-   If our N is large so that we have a large number of dummy variables, this may not be a very practical approach, and the Within-groups Estimator(FE) is a better option with the same results.
+
+$$y_{it} = \beta_0+\beta_1 x_{it}+\sum_{i=2}^{N}\beta_iI_i + u_{it}$$
+
+-   Where $I_i$ is an indicator variable.
+
+### The First Differencing Estimator (FD)
+
+A simple approach to rid the model of the individual-specific effects $\gamma_i$ is first differencing. Subtracting the lagged value $y_{it-1}$ from the initial model:
+
+$$y_{it} - y_{it-1} = (\beta_0-\beta_0)+ \beta_1 (x_{it}-x_{it-1}) + (\gamma_i-\gamma_i) + (u_it-u_{it-1})$$
+
+$$\Delta y_{it}= \beta_1 \Delta x_{it}+\Delta u_{it}$$
+
+Note that the individual-specific effect $\gamma_i$ , the intercept $\beta_0$, and the parameters $\beta_0$ are not estimated by the FD estimator because they are time invariant and therefore cancel out when differencing.
+
+### The Within Estimator
+
+In the within estimator, we first demean the variables to remove group averages and then run our regression, which eliminates the fixed effect coefficients $\gamma_i$:
+
+$$(y_{it}-\bar{y}_{i})=\beta_1(x_{1it}-\bar{x}_{1i})+...+\beta_p(x_{pit}-\bar{x}_{pi})+(\epsilon_{it}-\bar{\epsilon}_{i})$$
+
+This will produce equivalent results to running a regression with the fixed effects per group included  as dummy variables (LSDV), but it can be faster to run things this way when there are many groups.
+
+\newpage
+
+## Using R for panel data
+
+In this course, we use the plm package to estimate various specifications and to conduct various specification tests of panel data models. You can find more information about this package and its functionality in the following link:
+
+<https://cran.r-project.org/web/packages/plm/vignettes/A_plmPackage.html>
+
+Estimating panel data models with the plm package requires that the data sets are in "long format." If a data set is in "wide format," it can be converted to "long format" using `pivot_longer()` from the `tidyr` package or `melt` from the `reshape2` package.
+
+-   the long-form has a column for each variable and a row for each individual-period (in our example below: state-year).
+
+-   The wide form has a column for each variable-period and a row for each individual (in our example below: state).
+
+Then we need to create a panel structure for the dataset using the function `pdata.frame` in the `plm` package. The `pdata.frame()` function adds information about the panel data structure in the following ways:
+
+1)  Convert a data frame class to "pdata.frame"
+
+2)  Convert the class of each individual variable to "pseries", based on the original class of the variable
+
+3)  Convert the row names so that they indicate the individual identifier and the time identifier.
+
+4)  Converts the variables that identify the individuals and the periods to categorical class.
+
+Using the `pdata.frame()` is not necessary if the first variable of the data set is the individual identifier and the second variable is the time identifier. The package can then infer teh structure automatically.
+
+"Analysis of Panel Data Using R" by A. Henningsen and G. Henningsen has more details if interested. The electronic version is available in the UC Berkeley library.
+
+We estimate different panel data models using the `plm()` function from the `plm` package.
+
+For an unbalanced panel, we could use `make.pbalanced(data, balance.type)` to covert an unbalanced panel to a balanced panel. There are different ways to do this, and the argument `balance.type` must be supplied with one of three options:
+
+1)  Using "fill" creates a new row with NAs for each missing time point.
+
+2)  Using "shared.times" keeps all available individuals in the dataset but drops all time periods where at least one individual has no data.
+
+3)  By using "shared.individuals," all available time periods are kept but only for those individuals with information for all time periods.
+
+The function `is.pconsecutive()` can test whether the entities in the data have any gaps in their time series.
+
+\newpage
+
+## Case study: Traffic Deaths and Alcohol Taxes
+
+About 40,000 traffic fatalities occur each year in the U.S., and approximately 25% of fatal crashes involve a driver who drank alcohol.
+
+Government officials are looking for a possible policy to reduce traffic fatalities. One potential policy is to increase the tax on alcoholic beverages to reduce their consumption and then drive down alcohol related traffic fatalities.
+
+In this case study, we'll use the `Fatalities` data set from the `AER` package. This data set contains traffic fatality rate and tax on beer for 48 U.S. states from 1982-1988.
+
+Our primary research question is: **Is the tax on beer related to the traffic fatality rate (the number of fatalities per 10,000 inhabitants)**.
+
+\newpage
+
+### Data Description
+
+In this section, we explore the employment data set by answering the following questions:
+
+-   What are the names of the variables in the data set?
+
+-   What is the number of observations?
+
+-   What is the number of states in the data set?
+
+-   Which years are included in the data set?
+
+-   Are there any duplicate state-year combinations in the data set?
+
+-   Is the data in "long format' or "wide format"?
+
+-   Is the data a balanced or unbalanced panel?
+
+-   Are there individual and time identifier variables in the data?
+
+-   Do we need to convert the data frame to a `pdata.frame()` to set up our model?
+
+-   Given this data set, how would you study whether the tax rate tax on beer impacts the traffic fatality rate?
+
+```{r}
+# load dataset
+data(Fatalities)
+
+## Variable names
+names(Fatalities)
+
+# check the  dimension and structure of the data set
+dim(Fatalities)
+#str(Fatalities)
+head(Fatalities)
+
+# check if it's balanced
+Fatalities %>%
+  dplyr::select(year, state) %>%
+  table()
+
+# Check for gaps in the time series of each state
+Fatalities%>%
+  is.pconsecutive()
+
+## convert data frame to pdata.frame
+pfatalities <- pdata.frame(Fatalities, index=c("state", "year")) %>%
+  mutate(fatal_rate = (fatal/pop)*10000)
+
+## Check the structure of panel data
+pdim(pfatalities)
+```
+
+\newpage
+
+### Descriptive Statistics
+
+In this section, we use exploratory analysis to answer the following questions:
+
+1- How has the the traffic fatality rate changed over time?
+
+2- How has the tax on beer changed over time?
+
+3- Is the tax on beer related to the traffic fatality rate?
+
+a)- Let's start with a simple lineplot of traffic fatality rate over time (year) without considering the state variations. What did you notice?
+
+```{r}
+# Your code here
+```
+
+\newpage
+
+b)- Create a line plot for each state separated by color or using `facet_wrap`. Examine how fatality rate and beer tax have changed over time for each state.
+
+\newpage
+
+c)- Use a boxplot to show the heterogeneity of the fatality rate and beer tax across the states.
+
+```{r fig.height=6, fig.width=12}
+# Your code here
+```
+
+\newpage
+
+d)- Use a boxplot to show heterogeneity of fatality rate and beer tax across time.
+
+```{r fig.height=6, fig.width=12}
+# Your code here
+```
+
+\newpage
+
+e)  Use a scatter plot to check how the fatality rate correlates with the tax rate for each state and each rate?
+
+```{r fig.height=6, fig.width=12}
+# Your code here
+```
+
+\newpage
+
+### Model Development
+
+#### The Pooled OLS Estimator
+
+- Estimate the Pooled OLS using either lm() or plm(). What do you notice? Is the association between fatality rate and tax on beer as we expected?
+
+```{r}
+names(pfatalities)
+# pooled_ols <- # Your code here
+
+# summary(pooled_ols)
+```
+
+Visualize the OLS fit using the code below.
+
+```{r}
+# pfatalities%>%
+#   ggplot(aes(x = beertax, y = fatal_rate)) +
+#   geom_point(aes(color = state))+ 
+#   geom_line(data=broom::augment(pooled_ols), 
+#             aes(x = beertax, y =.fitted), 
+#             color = "blue", lty="dashed", size = 1)+
+#   theme(legend.position = "none") +labs(x = "Tax on beer",
+#        y = "Fatality rate")
+```
+
+#### The Least-Squares Dummy Variables Estimator(LSDV)
+
+Use Least-Squares Dummy Variables Estimator (LSDV) to control time-invariant state heterogeneity. What do you notice?
+
+- Use model = pooling in plm but explicitly add different intercepts for each state.
+
+```{r}
+# lsdv_model <- # Your code here
+
+# summary(lsdv_model)
+```
+
+Visualize the LSDV fit compared to OLS using the code below. What do you notice?
+
+```{r}
+# ggplot(data = broom::augment(lsdv_model), aes(x = beertax, y = .fitted)) +
+#   geom_point(aes(color =state)) +
+#   geom_line(aes(color = state)) +
+#   geom_line(data=broom::augment(pooled_ols), 
+#             aes(x = beertax, y =.fitted), 
+#             color = "blue", lty="dashed", size = 1) +
+#   labs(x = "Tax on beer", y = "Fitted Values (fatal_rate ~ beertax)",
+#        color = "state") +
+#   theme(legend.position = "none")
+```
+
+\newpage
+
+#### The First Differencing Estimator (FD)
+
+- Use the First-difference Estimator to control for state time-invariant state heterogeneity. You can do that by specifying model = "fd" in the plm() function.
+
+Compare this to the LSDV model above.
+
+```{r}
+# first_diff_model<- # Your code here
+
+# summary(first_diff_model)
+```
+
+#### The Within Estimator
+
+- Use the Within Estimator to control for state time-invariant state heterogeneity. You can do that by specifying model = "within" in the plm() function.
+
+Compare this to the LSDV model above.
+
+```{r}
+# within_model<- # Your code here
+
+# summary(within_model)
+```
+
+### Model Comparison
+
+- Compare the four models you fit using stargazer
+
+```{r}
+# stargazer(pooled_ols, lsdv_model, first_diff_model, within_model, keep = "beertax", type = "text",
+#           omit.stat = c("ser","f","adj.rsq"), dep.var.labels = "",
+#           column.labels = c("Pooled OLS", "LSDV", "FD", "Within"))
+```
+
+\newpage
+
+## Time Fixed Effects
+
+Let's extend our model to a case with both unobserved individual and unobserved time effects:
+
+$$y_{it} = \beta_0+\beta_1 x_{it}+\gamma_i + \eta_t +u_{it}$$
+
+Where $\eta_t$ is an unobserved time effect (invariant across individuals)
+
+a)  What is the consequence of excluding these unobserved time effects from the model?
+
+b)  What is an example of an unobserved time effect for fatality rate?
+
+c)  How do we control for this unobserved time heterogeneity?
+
+### Traffic Fatality Case Study
+
+```{r}
+# lsdv_model_time  <- plm(fatal_rate ~ beertax + state + year, data = pfatalities,
+#                         index = c("state", "year"),
+#                         model = "pooling") 
+
+# summary(lsdv_model_time)
+```
+
+> The Fixed Effects model may be enhanced by including appropriate dummy variables for time fixed effects.
+
+\newpage
+
+## Model Diagnostics
+
+### Test the significance of fixed effects
+
+We can do this test by running an F-test between two models, a restricted model and an unrestricted model:
+
+- The restricted model (the one with fewer variables) is the Pooled OLS model.
+
+- The unrestricted model is the Fixed Effects model.
+
+This is basically an ANOVA test if you remember back to the discrete choice model part of the course.
+
+Suppose we have the fixed effects regression model:
+
+$$y_{it}=\beta_0+\beta_1x_{1it}+...+\beta_px_{pit}+\gamma_i+\epsilon_{it}$$
+We can use the F test with the following null hypothesis:
+
+$$\gamma_1=...=\gamma_N=0$$
+
+In the plm package, the function `pFtest()` will run this with the null hypothesis that the pooled OLS model is better than the FE model i.e. individual intercepts are zero. We can also run a test for time fixed effects. 
+
+If we fail to reject the null hypothesis, then ignoring the panel data structure is probably ok though we would still want to check the residuals.
+
+```{r}
+# pFtest(within_model, pooled_ols)
+
+# pFtest(lsdv_model_time, lsdv_model)
+```
+
+> The null hypothesis is rejected in favor of individual fixed effects being significant but time fixed effects are not.
+
+\newpage
+
+## Reminders
+
+Before the next live session:
+
+1.  Complete HW-11
+
+2.  Complete all videos and reading for unit 12

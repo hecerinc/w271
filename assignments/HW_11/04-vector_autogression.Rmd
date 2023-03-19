@@ -1,0 +1,89 @@
+# (12 points) Vector autoregression
+
+```{r load VAR packages, message=FALSE,message=FALSE}
+library(tidyverse)
+```
+
+Annual values for real mortgage credit (RMC), real consumer credit (RCC) and real disposable personal income (RDPI) for the period 1946-2006 are recorded in `./data/mortgage_credit.csv`. 
+
+All of the observations are measured in billions of dollars, after adjustment by the Consumer Price Index (CPI). 
+
+Our goal is to develop a VAR model for these data for the period 1946-2003, and then forecast the last three years, 2004-2006. 
+
+
+```{r read credit data, message=FALSE}
+credit <- read_csv('./data/mortgage_credit.csv')
+#glimpse(credit)
+```
+
+## Time series plot
+
+Plot the time-series of real mortgage credit (RMC), real consumer credit (RCC) and real disposable personal income (RDPI)? Do they look stationary?
+
+```{r Time series plot}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+
+## Check for the unit root
+
+Plot ACF/PACF and Perform the unit root test on these variables and report the results. Do you reject the null of unit root for them? Is the first differencing necessary? 
+
+```{r ACF/PACF and  unit root test}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+
+## Determine VAR model
+
+Based on the unit root results transform the variables and determine the lag length of the VAR using the information criteria.
+
+```{r Determine VAR model}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+
+## Estimation 
+
+Estimate the selected VAR in previous part and comment on the results.
+
+```{r Estimate VAR}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+
+## Model diagnostic
+
+Do diagnostic checking of the VAR model.
+
+```{r Model diagnostic}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+
+## Forecasting
+
+forecast the last three years, 2004-2006.
+
+
+```{r Forecasting}
+#Fill this in
+
+```
+
+> 'Fill this in

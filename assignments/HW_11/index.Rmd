@@ -1,0 +1,43 @@
+---
+title: "Time Series Analysis"
+author: "UC Berkeley, School of Information: MIDS w271"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+output: 
+  bookdown::pdf_book: default
+  bookdown::gitbook:
+    config:
+      toc:
+        collapse: section
+        scroll_highlight: yes
+      fontsettings:
+        theme: white
+        family: serif
+        size: 2
+    highlight: tango
+always_allow_html: yes
+documentclass: book
+description: "This is the final problem set for MIDS w271: Time Series and Discrete Models! You've made it this far!"
+---
+
+# Problem Set 11 {-}
+
+This is the final problem set that you will have to work on for this class. Congratulations! (Although there is still a group lab that will be the final assignment in the course.)
+
+You will start with some guided work, and then proceed into less structured work that will let you stretch and demonstrate what you have learned to date.     
+
+Notice, in particular, that the last few questions are asking you essentially to "produce a model" using a method. At this point in the course, you should be familiar with many of the model forms that you *might* fit; and, you are familiar with methods that you can use to evaluate models' performances. In these questions, we are asking you to, essentially, fit a good model with a method and then to evaluate how a good model with "this" method is doing compared to another good model with "that" method.
+
+In several of these questions, there isn't a correct answer, *per se*. Instead, there is the process that you will undertake and record as you are producing your argument for the model that you think is best meeting your objectives. This is a **very** applied task that we anticipate you will see many times in your work.
+
+```{r setup document,warning=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo=TRUE)
+```
+
+We are providing you with an additional challenge, but one that is also very evocative of work that you're likely to come across. This is a well-built repository, that uses a well-documented framework to produce reports, namely `bookdown`. 
+
+Once you have done your work, you can render the entire book using the following call in your console: 
+
+    > bookdown::render_book()
+    
+This will ingest each of the files `01-time_series_...`, `02-cross_validation.Rmd`, `03-ARIMA_model.Rmd` and so on ... and produce a PDF that is stored in `./_book/_main.pdf`. If you would like to read more about this framework, you can do so at the following website: https://bookdown.org/yihui/bookdown/ .    

@@ -1,0 +1,78 @@
+# (10 points) ARIMA model
+
+Consider `fma::sheep`, the sheep population of England and Wales from 1867--1939. :sheep: 
+
+```{r load sheep data, message=FALSE, warning=FALSE}
+#install.packages('fma')
+library(fma)
+head(fma::sheep)
+```
+
+## Time series plot
+Produce a time plot of the time series, and comment on what you observe.
+
+```{r produce a time series plot of sheep}
+sheep_plot <- 'fill this in'
+```
+
+> 'Fill this in' 
+
+## Fit a model 
+
+Assume you decide to fit the following model: 
+
+$$
+  y_{t} = y_{t-1} + \phi_1(y_{t-1}-y_{t-2}) + \phi_2(y_{t-2}-y_{t-3}) + \phi_3(y_{t-3}-y_{t-4}) + \epsilon_t,
+$$ 
+
+where $\epsilon_t$ is a white noise series.
+
+### Model type
+What sort of ARIMA model is this (i.e., what are $p$, $d$, and $q$)?
+
+> 'Fill this in.'
+
+### Back to the future 
+
+Express this ARIMA model using backshift operator notation.
+
+> 'Fill this in.'
+
+## Is this model appropriate? 
+
+Examine the ACF and PACF of the differenced data. Evaluate whether this model is appropriate. 
+
+```{r}
+
+```
+
+> 'Fill this in.'
+
+## Forecasts, by hand! 
+The last five values of the series are given below:
+
+| Year              | 1935 | 1936 | 1937 | 1938 | 1939 |
+|:------------------|-----:|-----:|-----:|-----:|-----:|
+| Millions of sheep | 1648 | 1665 | 1627 | 1791 | 1797 |
+
+The estimated parameters are: 
+
+- $\phi_1 =  0.42$; 
+- $\phi_2 = -0.20$;  and, 
+- $\phi_3 = -0.30$.
+
+Without using the forecast function, calculate forecasts for the next three years (1940--1942).
+
+```{r create forcasts by hand}
+## you can use R as a calculator here
+
+```
+
+## Interpret roots
+Find the roots of your model's characteristic equation. Is this process stationary?.
+
+```{r}
+
+```
+
+> 'Fill this in.'

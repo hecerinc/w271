@@ -1,0 +1,66 @@
+# (10 points) Seasonal ARIMA model
+
+Download the series of E-Commerce Retail Sales as a Percent of Total Sales [here](https://fred.stlouisfed.org/series/ECOMPCTNSA). 
+
+(Feel free to explore the `fredr` package and API if interested.)
+
+Our goal is to Build a Seasonal ARIMA model, following all appropriate steps for a univariate time series model.
+
+Separate the data set into training and test data. The training data is used to estimate model parameters, and it is for 10/1999-12/2020. The test data is used to evaluate its accuracy, and it is for 01/2021-01/22.
+
+## Time series plot
+
+Plot training data set of Retail Sales. What do you notice? Is there any transformation necessary?
+
+```{r time series plot}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+## Check for Stationary 
+
+Use ACF/PACF and a unit root test to check if Retail Sales is stationary. If data is not stationary, difference the data, and apply the
+test again until it becomes stationary? How many differences are needed to make data stationary?
+
+```{r Check for Stationary}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+## Model identification and estimation
+
+Use ACF/PACF to identify an appropriate SARIMA model. Estimate both select model and model chosen by ARIMA()
+
+```{r Model identification and estimation}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+## Model diagnostic 
+
+Do residual diagnostic checking of both models. Are the residuals white noise? Use the Ljung-box test to check if the residuals are white noise.  
+
+```{r diagnostic}
+#Fill this in
+
+```
+
+> 'Fill this in
+
+
+## Forcasting 
+
+Use the both models to forecast the next 12 months and evaluate the forecast accuracy of these models.
+
+```{r forcasting}
+#Fill this in
+
+```
+
+> 'Fill this in

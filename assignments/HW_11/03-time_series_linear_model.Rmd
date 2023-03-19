@@ -1,0 +1,72 @@
+# (10 points) Time Series Linear Model and Cointegration
+
+Daily electricity demand and temperature (in degrees Celsius) is recorded in `./data/temperature_demand.csv`. Please work through the following questions to build a time series linear model against this data.
+
+```{r load packages for time series linear model, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
+```{r load temperature data, message=FALSE} 
+temperature <- read_csv('./data/temperature_demand.csv') %>% 
+  rename(
+     'index'       = '...1',
+     'demand'      = 'Demand', 
+     'work_day'    = 'WorkDay',
+     'temperature' = 'Temperature'
+  )
+#glimpse(temperature)
+```
+
+## Plot electricity
+
+Plot electricity demand and temperature as time series. Is there any correlation between these to variables? If yes, Do you think is it a spurious correlation?
+
+```{r plot electricity and temperature}
+#'fill this in'
+
+```
+
+> 'Fill this in
+
+## Cointegration test
+
+Use the Engle-Granger test to check for cointegration. What do you conclude? 
+
+```{r Cointegration test}
+#'fill this in'
+
+``` 
+
+## Fit Model
+
+Based on cointegration test,fit a regression model for demand with temperature as an explanatory variable(or their first difference).
+
+```{r Fit model}
+#'fill this in'
+
+``` 
+
+
+## Residuals Plot
+
+Produce a residual plot of the estimated model in pervious part. Is the model adequate? Describe any outliers or influential observations, and discuss how the model could be improved.
+
+```{r plot residuals}
+#Fill this in
+
+```
+
+> 'Fill this in: 
+
+## Forcasting model
+
+Use a model to forecast the electricity demand (with **prediction** intervals) that you would expect for the next day if the maximum temperature was $15^\circ$. Compare this with the forecast if the with maximum temperature was $35^\circ$. Do you believe these forecasts? Why or why not? 
+ 
+```{r produce a forecast with the model}
+#Fill this in
+
+```
+
+> 'Fill this in:' 
+
+
