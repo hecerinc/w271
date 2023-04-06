@@ -4,6 +4,7 @@ Daily electricity demand and temperature (in degrees Celsius) is recorded in `./
 
 ```{r load packages for time series linear model, warning=FALSE, message=FALSE}
 library(tidyverse)
+library(fpp3)
 ```
 
 ```{r load temperature data, message=FALSE} 
@@ -14,6 +15,7 @@ temperature <- read_csv('./data/temperature_demand.csv') %>%
      'work_day'    = 'WorkDay',
      'temperature' = 'Temperature'
   )
+temp <- as_tsibble(temperature, index=index, regular=T)
 #glimpse(temperature)
 ```
 
@@ -22,51 +24,72 @@ temperature <- read_csv('./data/temperature_demand.csv') %>%
 Plot electricity demand and temperature as time series. Is there any correlation between these to variables? If yes, Do you think is it a spurious correlation?
 
 ```{r plot electricity and temperature}
-#'fill this in'
-
+ggplot(temp, aes(x=index)) + 
+	geom_line(aes(y=temperature, colour="Temperature")) + 
+	geom_line(aes(y=demand/10, colour="Demand")) +
+	scale_y_continuous(name="Temperature (° C)", sec.axis = sec_axis(~.*10, name="Demand (kW/h)")) +
+	labs(x="Day #", title="Temperature (° C) and mean electricity demand (KW/H)", colour="Series") + 
+	theme_minimal() +
+	scale_colour_manual(values=c("Demand"="#e69f00", "Temperature"="#009e73")) +
+	theme(legend.position = "bottom")
 ```
 
-> 'Fill this in
+```{r}
+ggplot(temp, aes(temperature, demand)) + geom_point(colour="#009e73") + theme_minimal() +
+	labs(title="Temperature vs demand", x='Temperature (° C)', y='Demand (kW/h)')
+```
+
+
+From the plots we can see that there is a clear correlation between demand and temperature. The relationship is not exactly linear, as it has a clear curve, but a polynomial of degree 2 might reasonably approximate it. From experience, we can probably assert that this correlation is not spurious, and is actually a result of the use of climate-adjusting technology in households and businesses, which consume a great amount of energy. Naturally, the hotter it gets, the more people will use their ACs, which consume a significant amount of energy, which is why there's a rapid climb in demand as temperatures increase. An interesting feature of the correlation is the left half of the scatter plot and the center portion of the time plots. The data show that the same is true on the other extreme: as temperatures start to go down, people will also use more electricity, by means of the usage of heaters, which also consume high electricity.
 
 ## Cointegration test
 
 Use the Engle-Granger test to check for cointegration. What do you conclude? 
 
 ```{r Cointegration test}
-#'fill this in'
+coint_reg <- lm(log(demand) ~ log(temperature), data=temp)
+coef(summary(coint_reg))
+coint_res <- ts(coint_reg$res)
+tseries::pp.test(coint_res)
 
+# Phillips-Ouliaris cointegration test
+tseries::po.test(mutate(temp, log.temp = log(temperature), log.dem=log(demand)) %>% select(log.temp, log.dem))
 ``` 
+
+Both the Engle-Granger and the Phillips Ouliaris test reject the null hypothesis that there is no cointegration, and so we can assert there *is* cointegration.
 
 ## Fit Model
 
-Based on cointegration test,fit a regression model for demand with temperature as an explanatory variable(or their first difference).
+Based on cointegration test, fit a regression model for demand with temperature as an explanatory variable (or their first difference).
 
 ```{r Fit model}
-#'fill this in'
-
+m1 <- temp %>% model(auto=TSLM(log(demand) ~ log(temperature)))
+report(m1)
 ``` 
 
 
 ## Residuals Plot
 
-Produce a residual plot of the estimated model in pervious part. Is the model adequate? Describe any outliers or influential observations, and discuss how the model could be improved.
+Produce a residual plot of the estimated model in previous part. Is the model adequate? Describe any outliers or influential observations, and discuss how the model could be improved.
 
 ```{r plot residuals}
 #Fill this in
-
+m1 %>% gg_tsresiduals()
 ```
 
-> 'Fill this in: 
+The residuals are not white noise, and there is clearly a trend that's not being captured by the linear model. This is evident from the original plot, since the data behave different at the extremes (very high or very low temperatures) for demand than at the middle temperatures. We can see that behaviour clearly in the residuals plot because for more tepid temperatures, the residuals are small and clustered around 0, whereas at the extremes (the first few data points, when temperature was high in the original series), the residuals are significantly bigger. A quasdratic term could better capture the underlying behaviour for this model.
 
-## Forcasting model
+## Forecasting model
 
-Use a model to forecast the electricity demand (with **prediction** intervals) that you would expect for the next day if the maximum temperature was $15^\circ$. Compare this with the forecast if the with maximum temperature was $35^\circ$. Do you believe these forecasts? Why or why not? 
+Use a model to forecast the electricity demand (with **prediction** intervals) that you would expect for the next day if the maximum temperature was $15^\circ$. Compare this with the forecast if the maximum temperature was $35^\circ$. Do you believe these forecasts? Why or why not? 
  
 ```{r produce a forecast with the model}
-#Fill this in
-
+temp.nd <- new_data(temp, n=2)
+temp.nd$temperature <- c(15, 35)
+forecast(m1, temp.nd) %>% hilo()
 ```
 
-> 'Fill this in:' 
+- For the $15^\circ$, the model predicts a demand of 222.85 with a 95% CI of $[175.6, 278.91]$.
+- For the $35^\circ$, the model predicts a demand of 218.56 with a 95% CI of $[172.07, 273.75]$.
 
-
+Overall, we do not believe these forecasts, because as we have mentioned, the model performs poorly at large or small temperature values. In this case, the assertion being made is that at 15 degrees, the mean consumption would be _bigger_ than at 35 degrees, which is significantly hotter. This does not hold up to our intuition that people use more energy as temperature increases. It's possible the 15 degree prediction, being more tepid temperature, might be more believable, however, the given CI is quite large.
