@@ -8,28 +8,87 @@ Our goal is to Build a Seasonal ARIMA model, following all appropriate steps for
 
 Separate the data set into training and test data. The training data is used to estimate model parameters, and it is for 10/1999-12/2020. The test data is used to evaluate its accuracy, and it is for 01/2021-01/22.
 
+
+```{r Get the data, include=F}
+ecommerce <- read.csv('data/ECOMPCTNSA.csv', header=T)
+names(ecommerce) <- tolower(names(ecommerce))
+ecommerce$date <- as.Date(ecommerce$date)
+ects <- as_tsibble(ecommerce, index=date)
+# Make it quarterly data
+ects$quarter <- yearquarter(ects$date)
+ects <- update_tsibble(ects, index=quarter, regular=T)
+```
+
+```{r Separate into train/test}
+ects.orig <- ects
+ects.test <- ects |> filter_index("2021 Q1" ~ "2022 Q1")
+ects <- ects |> filter_index( ~ "2020 Q4")
+```
+
+
 ## Time series plot
 
 Plot training data set of Retail Sales. What do you notice? Is there any transformation necessary?
 
 ```{r time series plot}
-#Fill this in
-
+# Fill this in
+ects %>% autoplot(ecompctnsa) +
+	labs(title = "E-commerce retail sales as a percent of total sales", subtitle="Quarterly. 1999 Q4 - 2020 Q4", y="Percent")
 ```
 
-> 'Fill this in
+From the plot, we can observe a semi-linear trend with definite seasonality up until the second quarter of 2020. There is a big jump during that quarter which is attributable presumably to the COVID-19 lockdown, which precipitated e-commerce sales in the face of the inability to attend physical stores and physical distancing measures. It is evident from the plot that the variance needs to be stabilized, so a log transform might be appropriate.
 
 ## Check for Stationary 
 
 Use ACF/PACF and a unit root test to check if Retail Sales is stationary. If data is not stationary, difference the data, and apply the
-test again until it becomes stationary? How many differences are needed to make data stationary?
+test again until it becomes stationary. How many differences are needed to make data stationary?
 
-```{r Check for Stationary}
-#Fill this in
-
+```{r Check for stationary}
+gg_tsdisplay(ects, ecompctnsa, plot_type="partial")
 ```
 
-> 'Fill this in
+From the time plot, it is evident that the data is not stationary in all possible ways it can be non-stationary: (1) there is a clear upwards trend, (2) the variance is heteroskedastic (non-stable), and (3) there is evident seasonality. The ACF and PACF give further evidence of this. The ACF plot shows a slowly decaying autocorrelation, consistent with non-stationary data. In the PACF, we can see lag 1 has a significant positive autocorrelation, which solidifies our conclusion.
+
+```{r}
+tseries::adf.test(log(ects$ecompctnsa), k=4)
+ects %>% features(log(ecompctnsa), list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs))
+```
+Running the ADF and KPSS tests, both indicate strong evidence for non-stationarity, and suggest that the data will require 1 seasonal difference and a first-order difference, which we can confirm through their plots:
+
+```{r Seasonal difference}
+# TODO: does it make sense to log percentage data?
+ects %>% select(-date) %>% 
+	transmute(
+		`Sales (% of retail sales)` = ecompctnsa,
+		`Log sales` = log(ecompctnsa),
+		`Quarterly change in log sales` = difference(log(ecompctnsa), 4),
+		`Doubly differenced log sales` =
+			difference(difference(log(ecompctnsa), 4), 1)
+	) |>
+	pivot_longer(-quarter, names_to="Type", values_to="Sales") |>
+	mutate(
+		Type = factor(Type, levels = c(
+			"Sales (% of retail sales)",
+			"Log sales",
+			"Quarterly change in log sales",
+			"Doubly differenced log sales"))
+	) |>
+	ggplot(aes(x = quarter, y = Sales)) +
+	geom_line() +
+	facet_grid(vars(Type), scales = "free_y") +
+	labs(title = "Quarterly ecommerce sales as percentage of retail sales", y = NULL)
+```
+```{r, echo=F}
+ects$sales.trans <- with(ects, difference(difference(log(ecompctnsa), 4), 1))
+```
+
+We have applied a single seasonal difference and a first-order difference. We have also log-transformed the original series to stabilize the variance. We now run the tests again to check for stationarity:
+
+```{r Run the stationarity tests again}
+tseries::adf.test(ects$sales.trans[!is.na(ects$sales.trans)])
+ects %>% features(sales.trans, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs))
+```
+Both the ADF test and the KPSS test give strong statistical evidence that the transformed series is now stationary and we can proceed with modelling.
 
 ## Model identification and estimation
 
@@ -37,30 +96,95 @@ Use ACF/PACF to identify an appropriate SARIMA model. Estimate both select model
 
 ```{r Model identification and estimation}
 #Fill this in
-
+ects %>% gg_tsdisplay(sales.trans, plot_type = "partial")
 ```
 
-> 'Fill this in
+From the ACF plot of the differenced - and transformed - series, we can observe a significant _negative_ peak at lag 4, and no other significant peaks, which suggests a non-seasonal MA(4) component. At the same time, it suggests a seasonal MA(1) component. Hence, a good model to start with is $\text{ARIMA}(0,1,4)(0,1,1)_4$.
+
+From the PACF plot, we have significant spikes at lags 4 and 8, which are multiples of the seasonality $m=4$ (as this is quarterly data). This might be indicative of a seasonal AR(1) component, but the PACF plot is not particularly well behaved, although lag 8 is just slightly over the significance threshold. This suggests that there might be a more robust model we can fit, which we will try to get to via the optimization search.
+
+
+```{r}
+fit <- ects %>%
+	model(
+		arima014011 = ARIMA(log(ecompctnsa) ~ 0 + pdq(0,1,4) + PDQ(0,1,1)),
+		arima014111 = ARIMA(log(ecompctnsa) ~ 0 + pdq(0,1,4) + PDQ(1,1,1)),
+		auto = ARIMA(log(ecompctnsa), stepwise = F, approx = F)
+	)
+fit %>% pivot_longer(everything(), names_to="Model name", values_to="Orders")
+```
+
+```{r}
+glance(fit) |> arrange(AICc) |> select(.model:BIC)
+```
+
+Fitting the model results in an automatically selected $\text{ARIMA}(0,1,0)(0,1,2)_4$ model which means there is no non-seasonal autoregressive or MA component.
 
 ## Model diagnostic 
 
 Do residual diagnostic checking of both models. Are the residuals white noise? Use the Ljung-box test to check if the residuals are white noise.  
 
 ```{r diagnostic}
-#Fill this in
-
+fit |> select(auto) |>
+	gg_tsresiduals(lag=16) +
+	labs(title=paste("Residuals from the", expression(ARIMA(0,1,0)(0,1,2)[4]), "model"))
 ```
 
-> 'Fill this in
+```{r model 2}
+fit |> select(arima014011) |>
+	gg_tsresiduals(lag=16) +
+	labs(title=paste("Residuals from the", expression(ARIMA(0,1,4)(0,1,1)[4]), "model"))
+```
+
+```{r}
+bind_rows(
+augment(select(fit, auto)) |> features(.innov, ljung_box, lag = 8, dof=2),
+augment(select(fit, arima014011)) |> features(.innov, ljung_box, lag = 8, dof=5)
+)
+```
+
+From the residual plots, the ACF plots for both models provide strong evidence that the residuals are white noise. Additionally, while the residuals are not exactly normal because of the outliers previously discussed, they look reasonably normal.The Box-Ljung test for both the models provides formal statistical evidence that these residual series are white noise.
 
 
-## Forcasting 
+## Forecasting 
 
-Use the both models to forecast the next 12 months and evaluate the forecast accuracy of these models.
+Use both models to forecast the next 12 months and evaluate the forecast accuracy of these models.
 
 ```{r forcasting}
 #Fill this in
-
+fc <- fit |>
+	fabletools::forecast(h=4)
 ```
 
-> 'Fill this in
+```{r Forecast from auto model plot}
+ects %>%
+	autoplot(ecompctnsa) +
+	autolayer(filter(fc, .model == 'auto'), data=ects, show_gap=F) +
+	autolayer(ects.test, colour="#d86342", size=1)  +
+	labs(title="E-Commerce retail sales as a percent of total sales", subtitle="4 period forecast (2021 Q1 - 2021 Q4) from an ARIMA(0,1,0)(0,1,2)[4]", x=NULL, y="Percentage")
+```
+
+```{r Forecast from my model plot}
+ects %>%
+	autoplot(ecompctnsa) +
+	autolayer(filter(fc, .model == 'arima014011'), data=ects, show_gap=F) +
+	autolayer(ects.test, colour="#d86342", size=1)  +
+	labs(title="E-Commerce retail sales as a percent of total sales", subtitle="4 period forecast (2021 Q1 - 2021 Q4) from an ARIMA(0,1,4)(0,1,1)[4]", x=NULL, y="Percentage")
+```
+In the figures we show the result of the forecast for both the automatically selected and the manually-input models. In orange is the actual realised values for the same period. We can see the actual values in the next table.
+
+```{r Actual forecasts with CIs}
+fc %>% hilo() %>% filter(.model != 'arima014111') %>% select(-ecompctnsa)
+```
+
+From the forecast plots, it is immediately obvious that neither of the forecasts are well suited to the actual values. This is in line with our expectation prior to the analysis, as our training horizon ended along the 1st quarter of 2020, which already was exhibiting anomalous behaviour. The model can only capture what it assumes is a polynomial trend in the data, but in actual fact, e-commerce sales stabilised during 2021 as the COVID-19 lockdown continued into its second year.
+
+### Evaluating accuracy
+
+```{r Evaluate accuracy}
+accuracy(fc, ects.orig) |> 
+	filter(.model != 'arima014111') |>
+	arrange(.model) |>
+	select(.model, .type, RMSE, MAE, MAPE, MASE, RMSSE)
+```
+In terms of accuracy measures, we can observe from the table that across the all measures included here the auto model performed better. It's interesting to note that the automatically-selected model could not really capture that seasonal aspect of the original series, while the manually-selected one could. Nonetheless, it's clear that while none of the models performed particularly well, he auto model does slightly better.

@@ -99,5 +99,5 @@ Find the roots of your model's characteristic equation. Is this process stationa
 abs(polyroot(c(1, -phi_1, phi_2, phi_3)))
 ```
 
-The roots of the 3rd order polynomial are above, and the other root is $B = 1$. Because this is a unit root, this process is _not stationary_.
+The absolute value of the roots of the 3rd order polynomial are above, and the other root is $B = 1$. Because this is a unit root, this process is _not stationary_.
 

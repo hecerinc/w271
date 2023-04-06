@@ -3,7 +3,9 @@ title: "Time Series Analysis"
 author: "UC Berkeley, School of Information: MIDS w271"
 date: "`r Sys.Date()`"
 site: bookdown::bookdown_site
+geometry: margin=.8in
 output: 
+  bookdown::pdf_book: default
   bookdown::gitbook:
     config:
       toc:
@@ -14,7 +16,6 @@ output:
         family: serif
         size: 2
     highlight: tango
-  bookdown::pdf_book: default
 always_allow_html: yes
 documentclass: book
 description: "This is the final problem set for MIDS w271: Time Series and Discrete Models! You've made it this far!"
