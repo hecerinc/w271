@@ -2,6 +2,8 @@
 
 ```{r load VAR packages, message=FALSE,message=FALSE}
 library(tidyverse)
+library(vars)
+library(patchwork)
 ```
 
 Annual values for real mortgage credit (RMC), real consumer credit (RCC) and real disposable personal income (RDPI) for the period 1946-2006 are recorded in `./data/mortgage_credit.csv`. 
@@ -13,7 +15,9 @@ Our goal is to develop a VAR model for these data for the period 1946-2003, and 
 
 ```{r read credit data, message=FALSE}
 credit <- read_csv('./data/mortgage_credit.csv')
-#glimpse(credit)
+names(credit) <- tolower(names(credit))
+# glimpse(credit)
+credit <- as_tsibble(credit, index=year, regular=T)
 ```
 
 ## Time series plot
@@ -21,47 +25,82 @@ credit <- read_csv('./data/mortgage_credit.csv')
 Plot the time-series of real mortgage credit (RMC), real consumer credit (RCC) and real disposable personal income (RDPI)? Do they look stationary?
 
 ```{r Time series plot}
-#Fill this in
-
+series.colors <- thematic::okabe_ito(3)
+credit %>%
+	autoplot() +
+	geom_line(aes(y = rmc, color="RMC")) +
+	geom_line(aes(y = rcc, color="RCC")) +
+	geom_line(aes(y = rdpi, color='RDPI')) +
+	labs(x = "Year", y = "Value", color = "Series", title="RCC, RDPI, RMC 1946-2006") +
+	theme_minimal() +
+	scale_color_manual(values = c("RMC"=series.colors[1], "RCC"=series.colors[2], "RDPI"=series.colors[3])) + 
+	scale_x_continuous(n.breaks = 10)
 ```
 
-> 'Fill this in
-
+These do not look stationary given they have a clear trend.
 
 ## Check for the unit root
 
 Plot ACF/PACF and Perform the unit root test on these variables and report the results. Do you reject the null of unit root for them? Is the first differencing necessary? 
 
-```{r ACF/PACF and  unit root test}
-#Fill this in
+```{r}
+rdpi.acf <- credit %>% ACF(rdpi) %>% autoplot() + labs(title="RDPI ACF")
+rdpi.pacf <- credit %>% PACF(rdpi) %>% autoplot() + labs(title="RDPI PACF")
+rmc.acf <- credit %>% ACF(rmc) %>% autoplot() + labs(title="RMC ACF")
+rmc.pacf <- credit %>% PACF(rmc) %>% autoplot() + labs(title="RMC PACF")
+rcc.acf <- credit %>% ACF(rcc) %>% autoplot() + labs(title="RCC ACF")
+rcc.pacf <- credit %>% PACF(rcc) %>% autoplot() + labs(title="RCC PACF")
 
+(rdpi.acf + rdpi.pacf)/(rmc.acf + rmc.pacf)/(rcc.acf + rcc.pacf)
 ```
 
-> 'Fill this in
+
+```{r ACF/PACF and  unit root test}
+bind_rows(
+	credit %>% features(rdpi, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs)) %>% mutate(series="RDPI", .before=kpss_stat),
+	credit %>% features(rcc, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs)) %>% mutate(series="RCC", .before=kpss_stat),
+	credit %>% features(rmc, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs)) %>% mutate(series="RMC", .before=kpss_stat)
+)
+```
+
+From the ACF and PACF plots, all of series exhibit the same behaviour: slowly decaying ACF and a single spike in the PACF. It's unsurprising then, that the KPSS test rejects the null of stationarity and tell us that we will need second-order differencing for RDPI and RMC, and first-order differencing for RCC (which is expected to remove the trend).
 
 
 ## Determine VAR model
 
 Based on the unit root results transform the variables and determine the lag length of the VAR using the information criteria.
 
-```{r Determine VAR model}
-#Fill this in
-
+```{r Differencing}
+cdiff <- credit %>%
+	mutate(
+		rcc.diff = difference(rcc),
+		rmc.diff = difference(rmc, differences = 2),
+		rdpi.diff = difference(rdpi, differences = 2)
+		) %>%
+	data.frame() %>%
+	dplyr::select(ends_with('diff')) %>%
+	slice_tail(n=-3) # remove the NA values
 ```
 
-> 'Fill this in
+```{r VAR selection}
+VARselect(cdiff, lag.max=4, type="none")
+```
 
+All the information criteria suggest the adequate lag length is 1.
 
 ## Estimation 
 
 Estimate the selected VAR in previous part and comment on the results.
 
 ```{r Estimate VAR}
-#Fill this in
-
+var.diff <- VAR(cdiff, p=1, type="none")
+summary(var.diff)
 ```
 
-> 'Fill this in
+
+From eq (1), we get that the lagged RCC values are predictive of the current RCC values (significant a the .05 alpha), and a small predictiveness of the RMC at the 10% level.From eq (2), we get that lagged values of RMC are predictive of it at the 10% significance level, but not much else. From eq (3), we get that the lagged values of RDPI are strongly predictive of it (significant at the .001 alpha level), as well as RMC and RCC being predictive of it (at the .05 alpha significance level).
+
+Therefore, we can assert that RMC, RCC, and RDPI lags could be predictive of the RDPI value, but the same is not true for RCC or RMC insofar as their relationship to the other two series. If anything, lagged RCC values could be predictive of current RCC values.
 
 
 ## Model diagnostic
@@ -69,11 +108,11 @@ Estimate the selected VAR in previous part and comment on the results.
 Do diagnostic checking of the VAR model.
 
 ```{r Model diagnostic}
-#Fill this in
-
+roots(var.diff)
+serial.test(var.diff, lags.pt = 12)
 ```
 
-> 'Fill this in
+Given that all the eigenvalues of the companion matrix are less than 1, we can assert that VAR(1) is a stable process. Running the Portmanteau test, we get a p-value of .01, which is significant at an alpha of 0.05, hence we reject the null of no autocorrelation in the residuals.
 
 
 ## Forecasting
@@ -82,8 +121,8 @@ forecast the last three years, 2004-2006.
 
 
 ```{r Forecasting}
-#Fill this in
-
+var.diff <- VAR(as.ts(cdiff), p=1, type="none")
+forecast(var.diff) %>% autoplot() 
 ```
 
-> 'Fill this in
+We can see that the VAR(1) model is not able to capture the variance really well except maybe for RDPI, which is expected, because the other series are not predictive amongst themselves of any of the other series.

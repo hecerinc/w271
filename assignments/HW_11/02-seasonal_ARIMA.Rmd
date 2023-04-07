@@ -1,6 +1,6 @@
 # (10 points) Seasonal ARIMA model
 
-Download the series of E-Commerce Retail Sales as a Percent of Total Sales [here](https://fred.stlouisfed.org/series/ECOMPCTNSA). 
+Download the series of E-Commerce Retail Sales as a Percent of Total Sales [here](https://fred.stlouisfed.org/series/ECOMPCTNSA).
 
 (Feel free to explore the `fredr` package and API if interested.)
 
@@ -38,7 +38,7 @@ ects %>% autoplot(ecompctnsa) +
 
 From the plot, we can observe a semi-linear trend with definite seasonality up until the second quarter of 2020. There is a big jump during that quarter which is attributable presumably to the COVID-19 lockdown, which precipitated e-commerce sales in the face of the inability to attend physical stores and physical distancing measures. It is evident from the plot that the variance needs to be stabilized, so a log transform might be appropriate.
 
-## Check for Stationary 
+## Check for Stationary
 
 Use ACF/PACF and a unit root test to check if Retail Sales is stationary. If data is not stationary, difference the data, and apply the
 test again until it becomes stationary. How many differences are needed to make data stationary?
@@ -57,7 +57,7 @@ Running the ADF and KPSS tests, both indicate strong evidence for non-stationari
 
 ```{r Seasonal difference}
 # TODO: does it make sense to log percentage data?
-ects %>% select(-date) %>% 
+ects %>% select(-date) %>%
 	transmute(
 		`Sales (% of retail sales)` = ecompctnsa,
 		`Log sales` = log(ecompctnsa),
@@ -120,9 +120,9 @@ glance(fit) |> arrange(AICc) |> select(.model:BIC)
 
 Fitting the model results in an automatically selected $\text{ARIMA}(0,1,0)(0,1,2)_4$ model which means there is no non-seasonal autoregressive or MA component.
 
-## Model diagnostic 
+## Model diagnostic
 
-Do residual diagnostic checking of both models. Are the residuals white noise? Use the Ljung-box test to check if the residuals are white noise.  
+Do residual diagnostic checking of both models. Are the residuals white noise? Use the Ljung-box test to check if the residuals are white noise.
 
 ```{r diagnostic}
 fit |> select(auto) |>
@@ -146,7 +146,7 @@ augment(select(fit, arima014011)) |> features(.innov, ljung_box, lag = 8, dof=5)
 From the residual plots, the ACF plots for both models provide strong evidence that the residuals are white noise. Additionally, while the residuals are not exactly normal because of the outliers previously discussed, they look reasonably normal.The Box-Ljung test for both the models provides formal statistical evidence that these residual series are white noise.
 
 
-## Forecasting 
+## Forecasting
 
 Use both models to forecast the next 12 months and evaluate the forecast accuracy of these models.
 
@@ -182,7 +182,7 @@ From the forecast plots, it is immediately obvious that neither of the forecasts
 ### Evaluating accuracy
 
 ```{r Evaluate accuracy}
-accuracy(fc, ects.orig) |> 
+fabletools::accuracy(fc, ects.orig) |>
 	filter(.model != 'arima014111') |>
 	arrange(.model) |>
 	select(.model, .type, RMSE, MAE, MAPE, MASE, RMSSE)

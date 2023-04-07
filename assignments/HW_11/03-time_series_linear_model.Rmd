@@ -4,7 +4,7 @@ Daily electricity demand and temperature (in degrees Celsius) is recorded in `./
 
 ```{r load packages for time series linear model, warning=FALSE, message=FALSE}
 library(tidyverse)
-library(fpp3)
+#library(fpp3)
 ```
 
 ```{r load temperature data, message=FALSE} 
@@ -86,7 +86,7 @@ Use a model to forecast the electricity demand (with **prediction** intervals) t
 ```{r produce a forecast with the model}
 temp.nd <- new_data(temp, n=2)
 temp.nd$temperature <- c(15, 35)
-forecast(m1, temp.nd) %>% hilo()
+fabletools::forecast(m1, temp.nd) %>% hilo()
 ```
 
 - For the $15^\circ$, the model predicts a demand of 222.85 with a 95% CI of $[175.6, 278.91]$.

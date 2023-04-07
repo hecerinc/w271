@@ -23,9 +23,8 @@ From the time series plot we can observe some piecewise trends, where the popula
 Assume you decide to fit the following model: 
 
 $$
-  y_{t} = y_{t-1} + \phi_1(y_{t-1}-y_{t-2}) + \phi_2(y_{t-2}-y_{t-3}) + \phi_3(y_{t-3}-y_{t-4}) + \epsilon_t,		
+y_{t} = y_{t-1} + \phi_1(y_{t-1}-y_{t-2}) + \phi_2(y_{t-2}-y_{t-3}) + \phi_3(y_{t-3}-y_{t-4}) + \epsilon_t
 $$ 
-
 where $\epsilon_t$ is a white noise series.
 
 ### Model type
