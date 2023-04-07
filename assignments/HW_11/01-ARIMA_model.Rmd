@@ -2,7 +2,7 @@
 
 Consider `fma::sheep`, the sheep population of England and Wales from 1867--1939. :sheep: 
 
-```{r load sheep data, message=FALSE, warning=FALSE}
+```{r load sheep data, message=FALSE, warning=FALSE, echo=F}
 #install.packages('fma')
 library(fma)
 library(fpp3)
@@ -47,7 +47,7 @@ Where $(1-B)$ represents the first differencing, and the multiplied polynomial i
 
 Examine the ACF and PACF of the differenced data. Evaluate whether this model is appropriate. 
 
-```{r}
+```{r, warning=F}
 sheep <- as_tsibble(fma::sheep)
 sheep %>% gg_tsdisplay(difference(value), plot_type="partial")
 ```
@@ -70,7 +70,7 @@ The estimated parameters are:
 
 Without using the forecast function, calculate forecasts for the next three years (1940--1942).
 
-```{r create forcasts by hand}
+```{r create forcasts by hand, include=F}
 ## you can use R as a calculator here
 phi_1 =  0.42
 phi_2 = -0.20
@@ -87,7 +87,7 @@ y.val <- function(h, base.data) {
 ```
 
 ```{r}
-y.val(3, sheep)
+y.val(3, sheep) %>% knitr::kable()
 ```
 
 

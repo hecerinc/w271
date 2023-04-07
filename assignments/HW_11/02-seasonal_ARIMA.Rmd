@@ -51,11 +51,11 @@ From the time plot, it is evident that the data is not stationary in all possibl
 
 ```{r}
 tseries::adf.test(log(ects$ecompctnsa), k=4)
-ects %>% features(log(ecompctnsa), list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs))
+ects %>% features(log(ecompctnsa), list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs)) %>% knitr::kable()
 ```
 Running the ADF and KPSS tests, both indicate strong evidence for non-stationarity, and suggest that the data will require 1 seasonal difference and a first-order difference, which we can confirm through their plots:
 
-```{r Seasonal difference}
+```{r Seasonal difference, echo=F}
 # TODO: does it make sense to log percentage data?
 ects %>% select(-date) %>%
 	transmute(
@@ -78,15 +78,16 @@ ects %>% select(-date) %>%
 	facet_grid(vars(Type), scales = "free_y") +
 	labs(title = "Quarterly ecommerce sales as percentage of retail sales", y = NULL)
 ```
-```{r, echo=F}
+
+```{r}
 ects$sales.trans <- with(ects, difference(difference(log(ecompctnsa), 4), 1))
 ```
 
 We have applied a single seasonal difference and a first-order difference. We have also log-transformed the original series to stabilize the variance. We now run the tests again to check for stationarity:
 
-```{r Run the stationarity tests again}
+```{r Run the stationarity tests again, warning=F}
 tseries::adf.test(ects$sales.trans[!is.na(ects$sales.trans)])
-ects %>% features(sales.trans, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs))
+ects %>% features(sales.trans, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs)) %>% knitr::kable()
 ```
 Both the ADF test and the KPSS test give strong statistical evidence that the transformed series is now stationary and we can proceed with modelling.
 
@@ -94,8 +95,7 @@ Both the ADF test and the KPSS test give strong statistical evidence that the tr
 
 Use ACF/PACF to identify an appropriate SARIMA model. Estimate both select model and model chosen by ARIMA()
 
-```{r Model identification and estimation}
-#Fill this in
+```{r Model identification and estimation, warning=F, echo=F}
 ects %>% gg_tsdisplay(sales.trans, plot_type = "partial")
 ```
 
@@ -111,11 +111,11 @@ fit <- ects %>%
 		arima014111 = ARIMA(log(ecompctnsa) ~ 0 + pdq(0,1,4) + PDQ(1,1,1)),
 		auto = ARIMA(log(ecompctnsa), stepwise = F, approx = F)
 	)
-fit %>% pivot_longer(everything(), names_to="Model name", values_to="Orders")
+fit %>% pivot_longer(everything(), names_to="Model name", values_to="Orders") %>% knitr::kable()
 ```
 
 ```{r}
-glance(fit) |> arrange(AICc) |> select(.model:BIC)
+glance(fit) |> arrange(AICc) |> select(.model:BIC) %>% knitr::kable()
 ```
 
 Fitting the model results in an automatically selected $\text{ARIMA}(0,1,0)(0,1,2)_4$ model which means there is no non-seasonal autoregressive or MA component.
@@ -136,11 +136,11 @@ fit |> select(arima014011) |>
 	labs(title=paste("Residuals from the", expression(ARIMA(0,1,4)(0,1,1)[4]), "model"))
 ```
 
-```{r}
+```{r, echo=F}
 bind_rows(
 augment(select(fit, auto)) |> features(.innov, ljung_box, lag = 8, dof=2),
 augment(select(fit, arima014011)) |> features(.innov, ljung_box, lag = 8, dof=5)
-)
+) %>% knitr::kable()
 ```
 
 From the residual plots, the ACF plots for both models provide strong evidence that the residuals are white noise. Additionally, while the residuals are not exactly normal because of the outliers previously discussed, they look reasonably normal.The Box-Ljung test for both the models provides formal statistical evidence that these residual series are white noise.
@@ -150,13 +150,12 @@ From the residual plots, the ACF plots for both models provide strong evidence t
 
 Use both models to forecast the next 12 months and evaluate the forecast accuracy of these models.
 
-```{r forcasting}
-#Fill this in
+```{r forcasting, echo=F, message=F}
 fc <- fit |>
 	fabletools::forecast(h=4)
 ```
 
-```{r Forecast from auto model plot}
+```{r Forecast from auto model plot, echo=F, warning=F, message=F}
 ects %>%
 	autoplot(ecompctnsa) +
 	autolayer(filter(fc, .model == 'auto'), data=ects, show_gap=F) +
@@ -164,17 +163,18 @@ ects %>%
 	labs(title="E-Commerce retail sales as a percent of total sales", subtitle="4 period forecast (2021 Q1 - 2021 Q4) from an ARIMA(0,1,0)(0,1,2)[4]", x=NULL, y="Percentage")
 ```
 
-```{r Forecast from my model plot}
+```{r Forecast from my model plot, echo=F, warning=F, message=F}
 ects %>%
 	autoplot(ecompctnsa) +
 	autolayer(filter(fc, .model == 'arima014011'), data=ects, show_gap=F) +
 	autolayer(ects.test, colour="#d86342", size=1)  +
 	labs(title="E-Commerce retail sales as a percent of total sales", subtitle="4 period forecast (2021 Q1 - 2021 Q4) from an ARIMA(0,1,4)(0,1,1)[4]", x=NULL, y="Percentage")
 ```
+
 In the figures we show the result of the forecast for both the automatically selected and the manually-input models. In orange is the actual realised values for the same period. We can see the actual values in the next table.
 
-```{r Actual forecasts with CIs}
-fc %>% hilo() %>% filter(.model != 'arima014111') %>% select(-ecompctnsa)
+```{r Actual forecasts with CIs, echo=F}
+fc %>% hilo() %>% filter(.model != 'arima014111') %>% select(-ecompctnsa) %>% knitr::kable()
 ```
 
 From the forecast plots, it is immediately obvious that neither of the forecasts are well suited to the actual values. This is in line with our expectation prior to the analysis, as our training horizon ended along the 1st quarter of 2020, which already was exhibiting anomalous behaviour. The model can only capture what it assumes is a polynomial trend in the data, but in actual fact, e-commerce sales stabilised during 2021 as the COVID-19 lockdown continued into its second year.
@@ -185,6 +185,7 @@ From the forecast plots, it is immediately obvious that neither of the forecasts
 fabletools::accuracy(fc, ects.orig) |>
 	filter(.model != 'arima014111') |>
 	arrange(.model) |>
-	select(.model, .type, RMSE, MAE, MAPE, MASE, RMSSE)
+	select(.model, .type, RMSE, MAE, MAPE, MASE, RMSSE) %>% knitr::kable()
 ```
+
 In terms of accuracy measures, we can observe from the table that across the all measures included here the auto model performed better. It's interesting to note that the automatically-selected model could not really capture that seasonal aspect of the original series, while the manually-selected one could. Nonetheless, it's clear that while none of the models performed particularly well, he auto model does slightly better.

@@ -2,12 +2,12 @@
 
 Daily electricity demand and temperature (in degrees Celsius) is recorded in `./data/temperature_demand.csv`. Please work through the following questions to build a time series linear model against this data.
 
-```{r load packages for time series linear model, warning=FALSE, message=FALSE}
+```{r load packages for time series linear model, warning=FALSE, message=FALSE, echo=F}
 library(tidyverse)
 #library(fpp3)
 ```
 
-```{r load temperature data, message=FALSE} 
+```{r load temperature data, message=FALSE, echo=F} 
 temperature <- read_csv('./data/temperature_demand.csv') %>% 
   rename(
      'index'       = '...1',
@@ -23,7 +23,7 @@ temp <- as_tsibble(temperature, index=index, regular=T)
 
 Plot electricity demand and temperature as time series. Is there any correlation between these to variables? If yes, Do you think is it a spurious correlation?
 
-```{r plot electricity and temperature}
+```{r plot electricity and temperature, echo=F}
 ggplot(temp, aes(x=index)) + 
 	geom_line(aes(y=temperature, colour="Temperature")) + 
 	geom_line(aes(y=demand/10, colour="Demand")) +
@@ -34,7 +34,7 @@ ggplot(temp, aes(x=index)) +
 	theme(legend.position = "bottom")
 ```
 
-```{r}
+```{r, echo=F}
 ggplot(temp, aes(temperature, demand)) + geom_point(colour="#009e73") + theme_minimal() +
 	labs(title="Temperature vs demand", x='Temperature (° C)', y='Demand (kW/h)')
 ```
@@ -48,7 +48,7 @@ Use the Engle-Granger test to check for cointegration. What do you conclude?
 
 ```{r Cointegration test}
 coint_reg <- lm(log(demand) ~ log(temperature), data=temp)
-coef(summary(coint_reg))
+coef(summary(coint_reg)) %>% knitr::kable()
 coint_res <- ts(coint_reg$res)
 tseries::pp.test(coint_res)
 
@@ -72,9 +72,8 @@ report(m1)
 
 Produce a residual plot of the estimated model in previous part. Is the model adequate? Describe any outliers or influential observations, and discuss how the model could be improved.
 
-```{r plot residuals}
-#Fill this in
-m1 %>% gg_tsresiduals()
+```{r plot residuals, echo=F}
+m1 %>% gg_tsresiduals() + labs(title='Residuals for the linear model')
 ```
 
 The residuals are not white noise, and there is clearly a trend that's not being captured by the linear model. This is evident from the original plot, since the data behave different at the extremes (very high or very low temperatures) for demand than at the middle temperatures. We can see that behaviour clearly in the residuals plot because for more tepid temperatures, the residuals are small and clustered around 0, whereas at the extremes (the first few data points, when temperature was high in the original series), the residuals are significantly bigger. A quasdratic term could better capture the underlying behaviour for this model.
@@ -83,10 +82,10 @@ The residuals are not white noise, and there is clearly a trend that's not being
 
 Use a model to forecast the electricity demand (with **prediction** intervals) that you would expect for the next day if the maximum temperature was $15^\circ$. Compare this with the forecast if the maximum temperature was $35^\circ$. Do you believe these forecasts? Why or why not? 
  
-```{r produce a forecast with the model}
+```{r produce a forecast with the model, echo=F}
 temp.nd <- new_data(temp, n=2)
 temp.nd$temperature <- c(15, 35)
-fabletools::forecast(m1, temp.nd) %>% hilo()
+fabletools::forecast(m1, temp.nd) %>% hilo() %>% knitr::kable()
 ```
 
 - For the $15^\circ$, the model predicts a demand of 222.85 with a 95% CI of $[175.6, 278.91]$.

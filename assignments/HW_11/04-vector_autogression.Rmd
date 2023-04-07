@@ -1,8 +1,7 @@
 # (12 points) Vector autoregression
 
-```{r load VAR packages, message=FALSE,message=FALSE}
+```{r load VAR packages, message=FALSE,message=FALSE, echo=F}
 library(tidyverse)
-library(vars)
 library(patchwork)
 ```
 
@@ -13,7 +12,7 @@ All of the observations are measured in billions of dollars, after adjustment by
 Our goal is to develop a VAR model for these data for the period 1946-2003, and then forecast the last three years, 2004-2006. 
 
 
-```{r read credit data, message=FALSE}
+```{r read credit data, message=FALSE, echo=F}
 credit <- read_csv('./data/mortgage_credit.csv')
 names(credit) <- tolower(names(credit))
 # glimpse(credit)
@@ -24,7 +23,7 @@ credit <- as_tsibble(credit, index=year, regular=T)
 
 Plot the time-series of real mortgage credit (RMC), real consumer credit (RCC) and real disposable personal income (RDPI)? Do they look stationary?
 
-```{r Time series plot}
+```{r Time series plot, echo=F, mesasge=F, warning=F}
 series.colors <- thematic::okabe_ito(3)
 credit %>%
 	autoplot() +
@@ -43,7 +42,7 @@ These do not look stationary given they have a clear trend.
 
 Plot ACF/PACF and Perform the unit root test on these variables and report the results. Do you reject the null of unit root for them? Is the first differencing necessary? 
 
-```{r}
+```{r, echo=F}
 rdpi.acf <- credit %>% ACF(rdpi) %>% autoplot() + labs(title="RDPI ACF")
 rdpi.pacf <- credit %>% PACF(rdpi) %>% autoplot() + labs(title="RDPI PACF")
 rmc.acf <- credit %>% ACF(rmc) %>% autoplot() + labs(title="RMC ACF")
@@ -55,12 +54,12 @@ rcc.pacf <- credit %>% PACF(rcc) %>% autoplot() + labs(title="RCC PACF")
 ```
 
 
-```{r ACF/PACF and  unit root test}
+```{r ACF/PACF and  unit root test, echo=F}
 bind_rows(
 	credit %>% features(rdpi, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs)) %>% mutate(series="RDPI", .before=kpss_stat),
 	credit %>% features(rcc, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs)) %>% mutate(series="RCC", .before=kpss_stat),
 	credit %>% features(rmc, list(unitroot_kpss, unitroot_nsdiffs, unitroot_ndiffs)) %>% mutate(series="RMC", .before=kpss_stat)
-)
+) %>% knitr::kable()
 ```
 
 From the ACF and PACF plots, all of series exhibit the same behaviour: slowly decaying ACF and a single spike in the PACF. It's unsurprising then, that the KPSS test rejects the null of stationarity and tell us that we will need second-order differencing for RDPI and RMC, and first-order differencing for RCC (which is expected to remove the trend).
@@ -83,7 +82,7 @@ cdiff <- credit %>%
 ```
 
 ```{r VAR selection}
-VARselect(cdiff, lag.max=4, type="none")
+vars::VARselect(cdiff, lag.max=4, type="none")
 ```
 
 All the information criteria suggest the adequate lag length is 1.
@@ -93,7 +92,7 @@ All the information criteria suggest the adequate lag length is 1.
 Estimate the selected VAR in previous part and comment on the results.
 
 ```{r Estimate VAR}
-var.diff <- VAR(cdiff, p=1, type="none")
+var.diff <- vars::VAR(cdiff, p=1, type="none")
 summary(var.diff)
 ```
 
@@ -108,8 +107,8 @@ Therefore, we can assert that RMC, RCC, and RDPI lags could be predictive of the
 Do diagnostic checking of the VAR model.
 
 ```{r Model diagnostic}
-roots(var.diff)
-serial.test(var.diff, lags.pt = 12)
+vars::roots(var.diff)
+vars::serial.test(var.diff, lags.pt = 12)
 ```
 
 Given that all the eigenvalues of the companion matrix are less than 1, we can assert that VAR(1) is a stable process. Running the Portmanteau test, we get a p-value of .01, which is significant at an alpha of 0.05, hence we reject the null of no autocorrelation in the residuals.
@@ -121,8 +120,8 @@ forecast the last three years, 2004-2006.
 
 
 ```{r Forecasting}
-var.diff <- VAR(as.ts(cdiff), p=1, type="none")
-forecast(var.diff) %>% autoplot() 
+var.diff <- vars::VAR(as.ts(cdiff), p=1, type="none")
+generics::forecast(var.diff) %>% autoplot() 
 ```
 
 We can see that the VAR(1) model is not able to capture the variance really well except maybe for RDPI, which is expected, because the other series are not predictive amongst themselves of any of the other series.
